@@ -1,0 +1,16 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.footer {
+    width: 100%;
+    margin-top: 30px;
+    padding: 15px 0;
+    border-top: 1px solid #ddd;
+    text-align: center;
+    font-size: 0.85em;
+    color: #666;
+}
