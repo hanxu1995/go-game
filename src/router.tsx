@@ -3,7 +3,7 @@ import {App} from './components/App.tsx';
 
 export const router = createBrowserRouter([
     {
-        path: '/',
+        path: '/go-game',
         element: <App/>,
     },
 ]);
