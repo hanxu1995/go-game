@@ -1,15 +1,9 @@
 import './Board.css';
 import {type Coordinates, Stone} from './Stone.tsx';
+import {type CellState, CellStates} from "../types/types.tsx";
 
 // The distance between each line/intersection
 const GRID_LINE_WIDTH = 2;
-
-export type CellState = 0 | 1 | 2;
-export const CellState = Object.freeze({
-    Empty: 0,
-    Black: 1,
-    White: 2
-});
 
 export interface BoardProps {
     cellSizePx: number; // in px
@@ -88,9 +82,9 @@ export function Board({cellSizePx, boardSize, boardState, onIntersectionClick}: 
             for (let j = 0; j < boardSize; ++j) {
                 const stone = boardState[i][j];
                 let color: 'black' | 'white';
-                if (stone == CellState.Black) {
+                if (stone == CellStates.Black) {
                     color = 'black';
-                } else if (stone == CellState.White) {
+                } else if (stone == CellStates.White) {
                     color = 'white';
                 } else {
                     continue;

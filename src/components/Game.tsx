@@ -1,8 +1,9 @@
 import './Game.css';
 import {useCallback, useReducer} from 'react';
-import {Board, CellState} from './Board';
+import {Board} from './Board';
 import {type Coordinates} from './Stone';
 import {emitMessage} from '../utils';
+import {type CellState, CellStates} from "../types/types.tsx";
 
 const BoardSize = 19;
 const CellSizePx = 50;
@@ -23,7 +24,7 @@ type GameStatesRecord = {
 }
 
 const initialGameState: GameState = {
-    board: Array.from({length: BoardSize}, () => new Array(BoardSize).fill(CellState.Empty)),
+    board: Array.from({length: BoardSize}, () => new Array(BoardSize).fill(CellStates.Empty)),
     currentPlayer: 'black',
     lastMove: null,
     blackCapturedOpponent: 0,
@@ -83,7 +84,7 @@ function getNeighbors([r, c]: Coordinates): Coordinates[] {
 
 function findGroup(board: CellState[][], [r, c]: Coordinates): { stones: Coordinates[], liberties: number } {
     const stoneColor = board[r][c];
-    if (stoneColor === CellState.Empty) {
+    if (stoneColor === CellStates.Empty) {
         return {stones: [], liberties: 0};
     }
 
@@ -107,7 +108,7 @@ function findGroup(board: CellState[][], [r, c]: Coordinates): { stones: Coordin
                 if (!visited.has(neighborStr)) {
                     stack.push([nR, nC]);
                 }
-            } else if (neighborColor === CellState.Empty) {
+            } else if (neighborColor === CellStates.Empty) {
                 // Empty spot, add to liberties set
                 liberties.add(neighborStr);
             }
@@ -120,7 +121,7 @@ function findGroup(board: CellState[][], [r, c]: Coordinates): { stones: Coordin
 // Executes the capture and returns the number of captured stones
 function captureStones(board: CellState[][], group: Coordinates[]): number {
     for (const [r, c] of group) {
-        board[r][c] = CellState.Empty;
+        board[r][c] = CellStates.Empty;
     }
     return group.length;
 }
@@ -128,7 +129,7 @@ function captureStones(board: CellState[][], group: Coordinates[]): number {
 // Main function to check and apply captures after a move is placed
 function checkAndApplyCaptures(board: CellState[][], [r, c]: Coordinates): number {
     const playerColor: CellState = board[r][c];
-    const opponentColor: CellState = playerColor === CellState.Black ? CellState.White : CellState.Black;
+    const opponentColor: CellState = playerColor === CellStates.Black ? CellStates.White : CellStates.Black;
     let totalCaptures = 0;
 
     for (const [nR, nC] of getNeighbors([r, c])) {
@@ -213,7 +214,7 @@ export function Game() {
         }
         if (action.type === 'PLAY') {
             const [r, c] = action.coordinates;
-            if (lastGameState.board[r][c] !== CellState.Empty) {
+            if (lastGameState.board[r][c] !== CellStates.Empty) {
                 emitMessage('Spot occupied (internal error)', 'INFO');
                 return prevGameStateRecord;
             }
@@ -221,7 +222,7 @@ export function Game() {
             const newGameState = deepCopyGameState(lastGameState);
             newGameState.board = lastGameState.board.map(row => [...row]);
             // Place the stone on the temporary board copy
-            newGameState.board[r][c] = lastGameState.currentPlayer === 'black' ? CellState.Black : CellState.White;
+            newGameState.board[r][c] = lastGameState.currentPlayer === 'black' ? CellStates.Black : CellStates.White;
 
             // Check and apply opponent captures
             const numCaptured = checkAndApplyCaptures(newGameState.board, [r, c]);
@@ -269,7 +270,7 @@ export function Game() {
         }
 
         // Check if the intersection is already occupied
-        if (lastGameState.board[row][col] !== CellState.Empty) {
+        if (lastGameState.board[row][col] !== CellStates.Empty) {
             emitMessage(`Intersection (${row},${col}) is already occupied.`, 'INFO');
             return;
         }
