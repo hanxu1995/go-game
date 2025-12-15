@@ -1,6 +1,6 @@
 import './Board.css';
-import {type Coordinates, Stone} from './Stone.tsx';
-import {type CellState, CellStates} from "../types/types.tsx";
+import { type Coordinates, Stone } from './Stone.tsx';
+import { type CellState, CellStates } from '../types/types.tsx';
 
 // The distance between each line/intersection
 const GRID_LINE_WIDTH = 2;
@@ -12,7 +12,12 @@ export interface BoardProps {
     onIntersectionClick: ([row, col]: Coordinates) => void;
 }
 
-export function Board({cellSizePx, boardSize, boardState, onIntersectionClick}: BoardProps) {
+export function Board({
+    cellSizePx,
+    boardSize,
+    boardState,
+    onIntersectionClick,
+}: BoardProps) {
     // Renders the board lines (from index 0 to size)
     const renderGridLines = () => {
         const lines = [];
@@ -27,9 +32,9 @@ export function Board({cellSizePx, boardSize, boardState, onIntersectionClick}: 
                     y1={(i + 1 / 2) * cellSizePx}
                     x2={(boardSize - 1 / 2) * cellSizePx}
                     y2={(i + 1 / 2) * cellSizePx}
-                    stroke='black'
+                    stroke="black"
                     strokeWidth={GRID_LINE_WIDTH}
-                />
+                />,
             );
 
             // 2. Vertical Lines
@@ -40,9 +45,9 @@ export function Board({cellSizePx, boardSize, boardState, onIntersectionClick}: 
                     y1={cellSizePx / 2}
                     x2={(i + 1 / 2) * cellSizePx}
                     y2={(boardSize - 1 / 2) * cellSizePx}
-                    stroke='black'
+                    stroke="black"
                     strokeWidth={GRID_LINE_WIDTH}
-                />
+                />,
             );
         }
         return lines;
@@ -65,11 +70,11 @@ export function Board({cellSizePx, boardSize, boardState, onIntersectionClick}: 
                         y={y}
                         width={cellSizePx}
                         height={cellSizePx}
-                        fill='transparent'
-                        stroke='transparent' // Invisible
+                        fill="transparent"
+                        stroke="transparent" // Invisible
                         onClick={() => onIntersectionClick([i, j])}
-                        style={{cursor: 'pointer'}}
-                    />
+                        style={{ cursor: 'pointer' }}
+                    />,
                 );
             }
         }
@@ -90,16 +95,26 @@ export function Board({cellSizePx, boardSize, boardState, onIntersectionClick}: 
                     continue;
                 }
                 stones.push(
-                    <Stone key={`s-${i}-${j}-${color}`} coordinates={[i, j]} color={color} cellSizePx={cellSizePx}/>
+                    <Stone
+                        key={`s-${i}-${j}-${color}`}
+                        coordinates={[i, j]}
+                        color={color}
+                        cellSizePx={cellSizePx}
+                    />,
                 );
             }
         }
         return stones;
-    }
+    };
 
     const svgSizePx = boardSize * cellSizePx;
     return (
-        <svg className='board' width={svgSizePx} height={svgSizePx} viewBox={`0 0 ${svgSizePx} ${svgSizePx}`}>
+        <svg
+            className="board"
+            width={svgSizePx}
+            height={svgSizePx}
+            viewBox={`0 0 ${svgSizePx} ${svgSizePx}`}
+        >
             {renderGridLines()}
             {renderIntersections()}
             {renderStones()}

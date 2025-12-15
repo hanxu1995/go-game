@@ -1,4 +1,4 @@
-import {memo} from 'react';
+import { memo } from 'react';
 
 export type Coordinates = readonly [number, number];
 
@@ -8,7 +8,7 @@ export interface StoneProps {
     cellSizePx: number; // Cell size for positioning
 }
 
-function stone({coordinates, color, cellSizePx}: StoneProps) {
+function stone({ coordinates, color, cellSizePx }: StoneProps) {
     // Calculate the center of the intersection
     const cx = (coordinates[1] + 1 / 2) * cellSizePx;
     const cy = (coordinates[0] + 1 / 2) * cellSizePx;
@@ -22,7 +22,7 @@ function stone({coordinates, color, cellSizePx}: StoneProps) {
             cy={cy}
             r={radius}
             fill={color}
-            stroke='black'
+            stroke="black"
             strokeWidth={1}
         />
     );

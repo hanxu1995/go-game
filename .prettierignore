@@ -1,0 +1,7 @@
+.idea
+dist
+node_modules
+LICENSE
+pnpm-lock.yaml
+README.md
+tsconfig.tsbuildinfo

@@ -1,9 +1,9 @@
 import './Game.css';
-import {useCallback, useReducer} from 'react';
-import {Board} from './Board';
-import {type Coordinates} from './Stone';
-import {emitMessage} from '../utils';
-import {type CellState, CellStates} from "../types/types.tsx";
+import { useCallback, useReducer } from 'react';
+import { Board } from './Board';
+import { type Coordinates } from './Stone';
+import { emitMessage } from '../utils';
+import { type CellState, CellStates } from '../types/types.tsx';
 
 const BoardSize = 19;
 const CellSizePx = 50;
@@ -17,24 +17,30 @@ type GameState = {
     blackCapturedOpponent: number;
     whiteCapturedOpponent: number;
 };
-type GameAction = { type: 'PLAY', coordinates: Coordinates } | { type: 'PASS' };
+type GameAction = { type: 'PLAY'; coordinates: Coordinates } | { type: 'PASS' };
 type GameStatesRecord = {
     historicalGameStates: GameState[];
     gameStateToMoves: Record<string, number[]>;
-}
+};
 
 const initialGameState: GameState = {
-    board: Array.from({length: BoardSize}, () => new Array(BoardSize).fill(CellStates.Empty)),
+    board: Array.from({ length: BoardSize }, () =>
+        new Array(BoardSize).fill(CellStates.Empty),
+    ),
     currentPlayer: 'black',
     lastMove: null,
     blackCapturedOpponent: 0,
-    whiteCapturedOpponent: 0
+    whiteCapturedOpponent: 0,
 };
 const initialGameStatesRecord: GameStatesRecord = {
     historicalGameStates: [],
-    gameStateToMoves: {}
-}
-checkAndAddNewHistoricalGameState(initialGameStatesRecord, initialGameState, FullKo);
+    gameStateToMoves: {},
+};
+checkAndAddNewHistoricalGameState(
+    initialGameStatesRecord,
+    initialGameState,
+    FullKo,
+);
 
 function endGame() {
     console.log('endGame');
@@ -43,17 +49,23 @@ function endGame() {
 function deepCopyGameState(gameState: GameState): GameState {
     return {
         ...gameState,
-        "board": gameState.board.map(row => [...row])
-    }
+        board: gameState.board.map((row) => [...row]),
+    };
 }
 
-function deepCopyGameStatesRecord(gameStateRecord: GameStatesRecord): GameStatesRecord {
+function deepCopyGameStatesRecord(
+    gameStateRecord: GameStatesRecord,
+): GameStatesRecord {
     return {
-        historicalGameStates: gameStateRecord.historicalGameStates.map(gameState => deepCopyGameState(gameState)),
+        historicalGameStates: gameStateRecord.historicalGameStates.map(
+            (gameState) => deepCopyGameState(gameState),
+        ),
         gameStateToMoves: Object.fromEntries(
-            Object.entries(gameStateRecord.gameStateToMoves).map(([key, value]) => [key, [...value]])
-        )
-    }
+            Object.entries(gameStateRecord.gameStateToMoves).map(
+                ([key, value]) => [key, [...value]],
+            ),
+        ),
+    };
 }
 
 function isWithinBounds([r, c]: Coordinates): boolean {
@@ -65,13 +77,18 @@ function coordToStr([r, c]: Coordinates): string {
 }
 
 function gameStateToStr(gameState: GameState): string {
-    const {board, currentPlayer} = gameState;
-    return JSON.stringify({board, currentPlayer});
+    const { board, currentPlayer } = gameState;
+    return JSON.stringify({ board, currentPlayer });
 }
 
 function getNeighbors([r, c]: Coordinates): Coordinates[] {
     const neighbors: Coordinates[] = [];
-    const directions = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+    const directions = [
+        [0, 1],
+        [0, -1],
+        [1, 0],
+        [-1, 0],
+    ];
     for (const [dr, dc] of directions) {
         const newR = r + dr;
         const newC = c + dc;
@@ -82,10 +99,13 @@ function getNeighbors([r, c]: Coordinates): Coordinates[] {
     return neighbors;
 }
 
-function findGroup(board: CellState[][], [r, c]: Coordinates): { stones: Coordinates[], liberties: number } {
+function findGroup(
+    board: CellState[][],
+    [r, c]: Coordinates,
+): { stones: Coordinates[]; liberties: number } {
     const stoneColor = board[r][c];
     if (stoneColor === CellStates.Empty) {
-        return {stones: [], liberties: 0};
+        return { stones: [], liberties: 0 };
     }
 
     const stones: Coordinates[] = [];
@@ -115,7 +135,7 @@ function findGroup(board: CellState[][], [r, c]: Coordinates): { stones: Coordin
             // Opponent color is ignored for group finding and liberty counting
         }
     }
-    return {stones, liberties: liberties.size};
+    return { stones, liberties: liberties.size };
 }
 
 // Executes the capture and returns the number of captured stones
@@ -127,9 +147,13 @@ function captureStones(board: CellState[][], group: Coordinates[]): number {
 }
 
 // Main function to check and apply captures after a move is placed
-function checkAndApplyCaptures(board: CellState[][], [r, c]: Coordinates): number {
+function checkAndApplyCaptures(
+    board: CellState[][],
+    [r, c]: Coordinates,
+): number {
     const playerColor: CellState = board[r][c];
-    const opponentColor: CellState = playerColor === CellStates.Black ? CellStates.White : CellStates.Black;
+    const opponentColor: CellState =
+        playerColor === CellStates.Black ? CellStates.White : CellStates.Black;
     let totalCaptures = 0;
 
     for (const [nR, nC] of getNeighbors([r, c])) {
@@ -159,9 +183,13 @@ function removeLastHistoricalGameState(gameStateRecord: GameStatesRecord) {
     }
 }
 
-function checkAndAddNewHistoricalGameState(gameStateRecord: GameStatesRecord, newGameState: GameState, fullKo: boolean): {
-    status: 'OK' | 'KO' | 'FULL_KO',
-    repetitions: number[]
+function checkAndAddNewHistoricalGameState(
+    gameStateRecord: GameStatesRecord,
+    newGameState: GameState,
+    fullKo: boolean,
+): {
+    status: 'OK' | 'KO' | 'FULL_KO';
+    repetitions: number[];
 } {
     const stateString = gameStateToStr(newGameState);
     if (gameStateRecord.gameStateToMoves[stateString] !== undefined) {
@@ -169,36 +197,45 @@ function checkAndAddNewHistoricalGameState(gameStateRecord: GameStatesRecord, ne
             throw new Error('invalid game state: empty moves');
         }
         if (newGameState.lastMove !== 'PASS') {
-            if (gameStateRecord.gameStateToMoves[stateString].at(-1) === gameStateRecord.historicalGameStates.length - 2) {
+            if (
+                gameStateRecord.gameStateToMoves[stateString].at(-1) ===
+                gameStateRecord.historicalGameStates.length - 2
+            ) {
                 return {
                     status: 'KO',
-                    repetitions: gameStateRecord.gameStateToMoves[stateString]
-                }
+                    repetitions: gameStateRecord.gameStateToMoves[stateString],
+                };
             }
             if (fullKo) {
                 return {
                     status: 'FULL_KO',
-                    repetitions: gameStateRecord.gameStateToMoves[stateString]
-                }
+                    repetitions: gameStateRecord.gameStateToMoves[stateString],
+                };
             }
         }
     } else {
-        gameStateRecord.gameStateToMoves[stateString] = []
+        gameStateRecord.gameStateToMoves[stateString] = [];
     }
-    gameStateRecord.gameStateToMoves[stateString].push(gameStateRecord.historicalGameStates.length);
+    gameStateRecord.gameStateToMoves[stateString].push(
+        gameStateRecord.historicalGameStates.length,
+    );
     gameStateRecord.historicalGameStates.push(newGameState);
     return {
         status: 'OK',
-        repetitions: gameStateRecord.gameStateToMoves[stateString]
-    }
+        repetitions: gameStateRecord.gameStateToMoves[stateString],
+    };
 }
 
 export function Game() {
-    const gameStatesRecordReducer = (prevGameStateRecord: GameStatesRecord, action: GameAction): GameStatesRecord => {
+    const gameStatesRecordReducer = (
+        prevGameStateRecord: GameStatesRecord,
+        action: GameAction,
+    ): GameStatesRecord => {
         if (prevGameStateRecord.historicalGameStates.length === 0) {
             throw new Error('empty states record');
         }
-        const newGameStateRecord = deepCopyGameStatesRecord(prevGameStateRecord);
+        const newGameStateRecord =
+            deepCopyGameStatesRecord(prevGameStateRecord);
         const lastGameState = newGameStateRecord.historicalGameStates.at(-1)!;
         if (action.type === 'PASS') {
             if (lastGameState.lastMove === 'PASS') {
@@ -208,8 +245,13 @@ export function Game() {
             }
             const newGameState = deepCopyGameState(lastGameState);
             newGameState.lastMove = 'PASS';
-            newGameState.currentPlayer = newGameState.currentPlayer === 'black' ? 'white' : 'black';
-            checkAndAddNewHistoricalGameState(newGameStateRecord, newGameState, FullKo);
+            newGameState.currentPlayer =
+                newGameState.currentPlayer === 'black' ? 'white' : 'black';
+            checkAndAddNewHistoricalGameState(
+                newGameStateRecord,
+                newGameState,
+                FullKo,
+            );
             return newGameStateRecord;
         }
         if (action.type === 'PLAY') {
@@ -220,12 +262,18 @@ export function Game() {
             }
 
             const newGameState = deepCopyGameState(lastGameState);
-            newGameState.board = lastGameState.board.map(row => [...row]);
+            newGameState.board = lastGameState.board.map((row) => [...row]);
             // Place the stone on the temporary board copy
-            newGameState.board[r][c] = lastGameState.currentPlayer === 'black' ? CellStates.Black : CellStates.White;
+            newGameState.board[r][c] =
+                lastGameState.currentPlayer === 'black'
+                    ? CellStates.Black
+                    : CellStates.White;
 
             // Check and apply opponent captures
-            const numCaptured = checkAndApplyCaptures(newGameState.board, [r, c]);
+            const numCaptured = checkAndApplyCaptures(newGameState.board, [
+                r,
+                c,
+            ]);
 
             // Check for Suicide: If the newly placed group has 0 liberties after captures, it's illegal.
             const newGroupInfo = findGroup(newGameState.board, [r, c]);
@@ -243,7 +291,11 @@ export function Game() {
                 newGameState.whiteCapturedOpponent += numCaptured;
             }
             newGameState.lastMove = [r, c];
-            const {status, repetitions} = checkAndAddNewHistoricalGameState(newGameStateRecord, newGameState, FullKo);
+            const { status, repetitions } = checkAndAddNewHistoricalGameState(
+                newGameStateRecord,
+                newGameState,
+                FullKo,
+            );
             if (status === 'KO') {
                 emitMessage(`KO: ${repetitions}`, 'INFO');
                 return prevGameStateRecord;
@@ -254,36 +306,49 @@ export function Game() {
             return newGameStateRecord;
         }
         return prevGameStateRecord;
-    }
-    const [gameStatesRecord, dispatchGameStatesRecord] = useReducer(gameStatesRecordReducer, initialGameStatesRecord);
+    };
+    const [gameStatesRecord, dispatchGameStatesRecord] = useReducer(
+        gameStatesRecordReducer,
+        initialGameStatesRecord,
+    );
 
     if (gameStatesRecord.historicalGameStates.length === 0) {
         throw new Error('empty states record');
     }
     const lastGameState = gameStatesRecord.historicalGameStates.at(-1)!;
     // This function handles placing a new stone on the board
-    const handleIntersectionClick = useCallback(([row, col]: Coordinates) => {
-        // range check
-        if (!isWithinBounds([row, col])) {
-            emitMessage(`(${row},${col}) out of bounds.`, 'ERROR');
-            return;
-        }
+    const handleIntersectionClick = useCallback(
+        ([row, col]: Coordinates) => {
+            // range check
+            if (!isWithinBounds([row, col])) {
+                emitMessage(`(${row},${col}) out of bounds.`, 'ERROR');
+                return;
+            }
 
-        // Check if the intersection is already occupied
-        if (lastGameState.board[row][col] !== CellStates.Empty) {
-            emitMessage(`Intersection (${row},${col}) is already occupied.`, 'INFO');
-            return;
-        }
+            // Check if the intersection is already occupied
+            if (lastGameState.board[row][col] !== CellStates.Empty) {
+                emitMessage(
+                    `Intersection (${row},${col}) is already occupied.`,
+                    'INFO',
+                );
+                return;
+            }
 
-        // game state transfer
-        dispatchGameStatesRecord({type: 'PLAY', coordinates: [row, col]});
-    }, [lastGameState.board]);
+            // game state transfer
+            dispatchGameStatesRecord({ type: 'PLAY', coordinates: [row, col] });
+        },
+        [lastGameState.board],
+    );
 
     return (
-        <div className='game'>
+        <div className="game">
             <h1>围棋-严格禁全同</h1>
             <p>{`${lastGameState.currentPlayer === 'black' ? '黑' : '白'}方行棋`}</p>
-            <p>黑方提子：{lastGameState.blackCapturedOpponent}&nbsp;&nbsp;&nbsp;白方提子：{lastGameState.whiteCapturedOpponent}</p>
+            <p>
+                黑方提子：{lastGameState.blackCapturedOpponent}
+                &nbsp;&nbsp;&nbsp;白方提子：
+                {lastGameState.whiteCapturedOpponent}
+            </p>
 
             <Board
                 cellSizePx={CellSizePx}
