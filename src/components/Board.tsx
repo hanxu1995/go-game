@@ -1,6 +1,10 @@
+import {
+    type CellState,
+    CellStates,
+    type Coordinates,
+} from '../types/types.ts';
 import './Board.css';
-import { type Coordinates, Stone } from './Stone.tsx';
-import { type CellState, CellStates } from '../types/types.tsx';
+import { Stone } from './Stone.tsx';
 
 // The distance between each line/intersection
 const GRID_LINE_WIDTH = 2;

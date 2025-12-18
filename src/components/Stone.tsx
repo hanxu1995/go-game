@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-export type Coordinates = readonly [number, number];
+import type { Coordinates } from '../types/types.ts';
 
 export interface StoneProps {
     coordinates: Coordinates;
