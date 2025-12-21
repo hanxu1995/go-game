@@ -16,6 +16,11 @@ interface MessageState {
         title?: string,
     ) => number;
     removeMessage: (id: number) => Message | undefined;
+    displayMessage: (
+        content: string,
+        severity: Message['severity'],
+        title?: string,
+    ) => void;
 }
 
 export const useMessageStore = create<MessageState>((set, get) => ({
@@ -53,16 +58,18 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         });
         return resultMessage;
     },
+    displayMessage: (
+        content: string,
+        severity: Message['severity'],
+        title?: string,
+        duration: number = 3000,
+    ) => {
+        const { addMessage, removeMessage } = get();
+        const id = addMessage(content, severity, title);
+        setTimeout(() => {
+            removeMessage(id);
+        }, duration);
+    },
 }));
 
-export function displayMessage(
-    content: string,
-    severity: Message['severity'],
-    title?: string,
-) {
-    const { addMessage, removeMessage } = useMessageStore.getState();
-    const id = addMessage(content, severity, title);
-    setTimeout(() => {
-        removeMessage(id);
-    }, 3000);
-}
+export const displayMessage = useMessageStore.getState().displayMessage;

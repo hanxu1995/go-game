@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from 'react';
+import { useCallback } from 'react';
 
 import {
     BoardSize,
@@ -14,9 +14,10 @@ import {
     type GameStatesRecord,
 } from '../types/common.ts';
 import { displayMessage } from '../utils/message.ts';
-import { deepCopyGameStatesRecord, logMessage } from '../utils/utils.ts';
+import { deepCopyGameStatesRecord } from '../utils/utils.ts';
 import { Board } from './Board';
 import './Game.css';
+import { create } from 'zustand';
 
 const CellSizePx = 50;
 
@@ -33,33 +34,41 @@ const initialGameStatesRecord: GameStatesRecord = {
     historicalGameStates: [],
     gameStateToMoves: {},
 };
-checkAndAddNewHistoricalGameState(
+const initialResult = checkAndAddNewHistoricalGameState(
     initialGameStatesRecord,
     initialGameState,
     FullKo,
 );
-
-function endGame() {
-    logMessage('endGame', 'INFO');
+if (initialResult.status !== 'OK') {
+    throw new Error('failed to initialize game states record');
 }
 
-export function Game() {
-    const gameStatesRecordReducer = (
-        prevGameStateRecord: GameStatesRecord,
-        action: GameAction,
-    ): GameStatesRecord => {
-        const newGameStateRecord =
-            deepCopyGameStatesRecord(prevGameStateRecord);
+interface GameComponentState {
+    gameStatesRecord: GameStatesRecord;
+    endGame: () => void;
+    applyAction: (action: GameAction) => void;
+}
+
+const useGameStore = create<GameComponentState>((set, get) => ({
+    gameStatesRecord: initialGameStatesRecord,
+    endGame: () => {
+        displayMessage('Game ended', 'info', 'Game Over');
+    },
+    applyAction: (action: GameAction) => {
+        const { gameStatesRecord, endGame } = get();
+        const newGameStateRecord = deepCopyGameStatesRecord(gameStatesRecord);
         const result = transitGameState(newGameStateRecord, action);
         if (result.status === 'INVALID') {
-            return prevGameStateRecord;
+            return;
         }
         if (result.status === 'END') {
             endGame();
-            return newGameStateRecord;
+            set({ gameStatesRecord: newGameStateRecord });
+            return;
         }
         if (result.status === 'OK') {
-            return newGameStateRecord;
+            set({ gameStatesRecord: newGameStateRecord });
+            return;
         }
         if (result.status === 'KO') {
             displayMessage(
@@ -67,7 +76,7 @@ export function Game() {
                 'error',
                 'KO violation',
             );
-            return prevGameStateRecord;
+            return;
         }
         if (result.status === 'FULL_KO') {
             displayMessage(
@@ -75,25 +84,28 @@ export function Game() {
                 'error',
                 'Full KO violation',
             );
-            return prevGameStateRecord;
+            return;
         }
-        return prevGameStateRecord;
-    };
+        return;
+    },
+}));
 
-    const [gameStatesRecord, dispatchGameStatesRecord] = useReducer(
-        gameStatesRecordReducer,
-        initialGameStatesRecord,
-    );
+export function Game() {
+    const gameStatesRecord = useGameStore((state) => state.gameStatesRecord);
+    const applyAction = useGameStore((state) => state.applyAction);
 
     if (gameStatesRecord.historicalGameStates.length === 0) {
         throw new Error('empty states record');
     }
     const lastGameState = gameStatesRecord.historicalGameStates.at(-1)!;
     // This function handles placing a new stone on the board
-    const handleIntersectionClick = useCallback(([row, col]: Coordinates) => {
-        // game state transfer
-        dispatchGameStatesRecord({ type: 'PLAY', coordinates: [row, col] });
-    }, []);
+    const handleIntersectionClick = useCallback(
+        ([row, col]: Coordinates) => {
+            // game state transfer
+            applyAction({ type: 'PLAY', coordinates: [row, col] });
+        },
+        [applyAction],
+    );
 
     return (
         <div className="game">

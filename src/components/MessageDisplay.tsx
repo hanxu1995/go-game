@@ -6,7 +6,8 @@ import Stack from '@mui/material/Stack';
 import { createPortal } from 'react-dom';
 
 export function MessageDisplay() {
-    const { messages, removeMessage } = useMessageStore();
+    const messages = useMessageStore((state) => state.messages);
+    const removeMessage = useMessageStore((state) => state.removeMessage);
     return createPortal(
         <Stack className="message-stack" spacing={1}>
             {messages.map(({ id, content, title, severity }) => (
