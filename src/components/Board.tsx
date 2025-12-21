@@ -2,7 +2,7 @@ import {
     type CellState,
     CellStates,
     type Coordinates,
-} from '../types/types.ts';
+} from '../types/common.ts';
 import './Board.css';
 import { Stone } from './Stone.tsx';
 

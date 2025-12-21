@@ -20,7 +20,9 @@
     "@mui/material": "^7.3.6",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-router": "^7.10.1"
+    "react-router": "^7.11.0",
+    "upgrade": "^1.1.0",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

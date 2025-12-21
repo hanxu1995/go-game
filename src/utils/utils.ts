@@ -2,17 +2,9 @@ import type {
     Coordinates,
     GameState,
     GameStatesRecord,
-} from '../types/types.ts';
+} from '../types/common.ts';
 
 export function logMessage(message: string, level: 'ERROR' | 'INFO') {
-    if (level === 'ERROR') {
-        console.error(message);
-    } else {
-        console.log(message);
-    }
-}
-
-export function displayMessage(message: string, level: 'ERROR' | 'INFO') {
     if (level === 'ERROR') {
         console.error(message);
     } else {

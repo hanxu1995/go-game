@@ -12,8 +12,9 @@ import {
     type GameAction,
     type GameState,
     type GameStatesRecord,
-} from '../types/types.ts';
-import { deepCopyGameStatesRecord, displayMessage } from '../utils/utils.ts';
+} from '../types/common.ts';
+import { displayMessage } from '../utils/message.ts';
+import { deepCopyGameStatesRecord, logMessage } from '../utils/utils.ts';
 import { Board } from './Board';
 import './Game.css';
 
@@ -39,45 +40,46 @@ checkAndAddNewHistoricalGameState(
 );
 
 function endGame() {
-    displayMessage('endGame', 'INFO');
-}
-
-function gameStatesRecordReducer(
-    prevGameStateRecord: GameStatesRecord,
-    action: GameAction,
-): GameStatesRecord {
-    const newGameStateRecord = deepCopyGameStatesRecord(prevGameStateRecord);
-    const result = transitGameState(newGameStateRecord, action);
-    if (result.status === 'INVALID') {
-        return prevGameStateRecord;
-    }
-    if (result.status === 'END') {
-        endGame();
-        return newGameStateRecord;
-    }
-    if (result.status === 'OK') {
-        return newGameStateRecord;
-    }
-    if (result.status === 'KO') {
-        displayMessage(
-            `KO violation: repetitions at moves ${result.repetitions.join(', ')}`,
-            'ERROR',
-        );
-        return prevGameStateRecord;
-    }
-    if (result.status === 'FULL_KO') {
-        displayMessage(
-            `Full KO violation: repetitions at moves ${result.repetitions.join(
-                ', ',
-            )}`,
-            'ERROR',
-        );
-        return prevGameStateRecord;
-    }
-    return prevGameStateRecord;
+    logMessage('endGame', 'INFO');
 }
 
 export function Game() {
+    const gameStatesRecordReducer = (
+        prevGameStateRecord: GameStatesRecord,
+        action: GameAction,
+    ): GameStatesRecord => {
+        const newGameStateRecord =
+            deepCopyGameStatesRecord(prevGameStateRecord);
+        const result = transitGameState(newGameStateRecord, action);
+        if (result.status === 'INVALID') {
+            return prevGameStateRecord;
+        }
+        if (result.status === 'END') {
+            endGame();
+            return newGameStateRecord;
+        }
+        if (result.status === 'OK') {
+            return newGameStateRecord;
+        }
+        if (result.status === 'KO') {
+            displayMessage(
+                `Repetitions at moves ${result.repetitions.join(', ')}`,
+                'error',
+                'KO violation',
+            );
+            return prevGameStateRecord;
+        }
+        if (result.status === 'FULL_KO') {
+            displayMessage(
+                `Repetitions at moves ${result.repetitions.join(', ')}`,
+                'error',
+                'Full KO violation',
+            );
+            return prevGameStateRecord;
+        }
+        return prevGameStateRecord;
+    };
+
     const [gameStatesRecord, dispatchGameStatesRecord] = useReducer(
         gameStatesRecordReducer,
         initialGameStatesRecord,

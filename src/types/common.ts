@@ -9,19 +9,19 @@ export const CellStates = Object.freeze({
 
 export type Player = 'black' | 'white';
 
-export type GameState = {
+export type GameAction =
+    | { type: 'PLAY'; coordinates: Coordinates }
+    | { type: 'PASS' };
+
+export interface GameState {
     board: CellState[][];
     currentPlayer: Player;
     lastMove: Coordinates | 'PASS' | null;
     blackCapturedOpponent: number;
     whiteCapturedOpponent: number;
-};
+}
 
-export type GameAction =
-    | { type: 'PLAY'; coordinates: Coordinates }
-    | { type: 'PASS' };
-
-export type GameStatesRecord = {
+export interface GameStatesRecord {
     historicalGameStates: GameState[];
     gameStateToMoves: Record<string, number[]>;
-};
+}

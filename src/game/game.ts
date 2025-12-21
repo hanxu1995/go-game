@@ -6,7 +6,7 @@ import {
     type GameState,
     type GameStatesRecord,
     type Player,
-} from '../types/types.ts';
+} from '../types/common.ts';
 import {
     coordToStr,
     deepCopyGameState,
