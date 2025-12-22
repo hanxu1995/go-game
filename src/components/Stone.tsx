@@ -8,7 +8,7 @@ export interface StoneProps {
     cellSizePx: number; // Cell size for positioning
 }
 
-function stone({ coordinates, color, cellSizePx }: StoneProps) {
+function Stone_({ coordinates, color, cellSizePx }: StoneProps) {
     // Calculate the center of the intersection
     const cx = (coordinates[1] + 1 / 2) * cellSizePx;
     const cy = (coordinates[0] + 1 / 2) * cellSizePx;
@@ -28,4 +28,4 @@ function stone({ coordinates, color, cellSizePx }: StoneProps) {
     );
 }
 
-export const Stone = memo(stone);
+export const Stone = memo(Stone_);
