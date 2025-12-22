@@ -12,6 +12,7 @@ const GRID_LINE_WIDTH = 2;
 export interface BoardProps {
     cellSizePx: number; // in px
     boardSize: number; // e.g., 19 for 19x19
+    dots: Coordinates[];
     boardState: CellState[][];
     onIntersectionClick: ([row, col]: Coordinates) => void;
 }
@@ -19,6 +20,7 @@ export interface BoardProps {
 export function Board({
     cellSizePx,
     boardSize,
+    dots,
     boardState,
     onIntersectionClick,
 }: BoardProps) {
@@ -111,6 +113,24 @@ export function Board({
         return stones;
     };
 
+    const renderDots = () => {
+        return dots.map(([i, j]) => {
+            const cx = (j + 1 / 2) * cellSizePx;
+            const cy = (i + 1 / 2) * cellSizePx;
+            const radius = cellSizePx * 0.1; // Small dot
+
+            return (
+                <circle
+                    key={`d-${i}-${j}`}
+                    cx={cx}
+                    cy={cy}
+                    r={radius}
+                    fill="black"
+                />
+            );
+        });
+    };
+
     const svgSizePx = boardSize * cellSizePx;
     return (
         <svg
@@ -121,6 +141,7 @@ export function Board({
         >
             {renderGridLines()}
             {renderIntersections()}
+            {renderDots()}
             {renderStones()}
         </svg>
     );

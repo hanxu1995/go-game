@@ -1,3 +1,4 @@
+import { BoardSize, FullKo } from '../components/Game.tsx';
 import {
     type CellState,
     CellStates,
@@ -13,9 +14,6 @@ import {
     gameStateToStr,
     logMessage,
 } from '../utils/utils.ts';
-
-export const BoardSize = 19;
-export const FullKo = true;
 
 export function isWithinBounds(
     [r, c]: Coordinates,

@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
 
 import {
-    BoardSize,
-    FullKo,
     checkAndAddNewHistoricalGameState,
     transitGameState,
 } from '../game/game.ts';
@@ -20,6 +18,19 @@ import './Game.css';
 import { create } from 'zustand';
 
 const CellSizePx = 50;
+const Dots: Coordinates[] = [
+    [3, 3],
+    [3, 9],
+    [3, 15],
+    [9, 3],
+    [9, 9],
+    [9, 15],
+    [15, 3],
+    [15, 9],
+    [15, 15],
+];
+export const BoardSize = 19;
+export const FullKo = true;
 
 const initialGameState: GameState = {
     board: Array.from({ length: BoardSize }, () =>
@@ -120,6 +131,7 @@ export function Game() {
             <Board
                 cellSizePx={CellSizePx}
                 boardSize={BoardSize}
+                dots={Dots}
                 boardState={lastGameState.board}
                 onIntersectionClick={handleIntersectionClick}
             />
