@@ -1,0 +1,25 @@
+export default {
+    extends: ['stylelint-config-standard'],
+    plugins: ['stylelint-order'],
+    rules: {
+        'order/properties-order': [
+            'position',
+            'top',
+            'right',
+            'bottom',
+            'left',
+            'z-index',
+            'display',
+            'flex',
+            'justify-content',
+            'align-items',
+            'width',
+            'height',
+            'margin',
+            'padding',
+            'font-size',
+            'color',
+            'background',
+        ],
+    },
+};
