@@ -6,5 +6,5 @@ export function displayMessage(
     severity: AlertSnackbarProps['severity'],
     title?: string,
 ) {
-    enqueueSnackbar(content, { severity, title });
+    enqueueSnackbar(content, { severity, title } as any);
 }

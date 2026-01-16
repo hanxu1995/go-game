@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import {
     checkAndAddNewHistoricalGameState,
@@ -15,7 +15,6 @@ import { displayMessage } from '../utils/message.ts';
 import { deepCopyGameStatesRecord } from '../utils/utils.ts';
 import { Board } from './Board';
 import './Game.css';
-import { create } from 'zustand';
 
 const CellSizePx = 50;
 const Dots: Coordinates[] = [
@@ -45,69 +44,57 @@ const initialGameStatesRecord: GameStatesRecord = {
     historicalGameStates: [],
     gameStateToMoves: {},
 };
-const initialResult = checkAndAddNewHistoricalGameState(
+checkAndAddNewHistoricalGameState(
     initialGameStatesRecord,
     initialGameState,
     FullKo,
 );
-if (initialResult.status !== 'OK') {
-    throw new Error('failed to initialize game states record');
-}
-
-interface GameComponentState {
-    gameStatesRecord: GameStatesRecord;
-    endGame: () => void;
-    applyAction: (action: GameAction) => void;
-}
-
-const useGameStore = create<GameComponentState>((set, get) => ({
-    gameStatesRecord: initialGameStatesRecord,
-    endGame: () => {
-        displayMessage('Game ended', 'info', 'Game Over');
-    },
-    applyAction: (action: GameAction) => {
-        const { gameStatesRecord, endGame } = get();
-        const newGameStateRecord = deepCopyGameStatesRecord(gameStatesRecord);
-        const result = transitGameState(newGameStateRecord, action);
-        if (result.status === 'INVALID') {
-            return;
-        }
-        if (result.status === 'END') {
-            endGame();
-            set({ gameStatesRecord: newGameStateRecord });
-            return;
-        }
-        if (result.status === 'OK') {
-            set({ gameStatesRecord: newGameStateRecord });
-            return;
-        }
-        if (result.status === 'KO') {
-            displayMessage(
-                `Repetitions at moves ${result.repetitions.join(', ')}`,
-                'error',
-                'KO violation',
-            );
-            return;
-        }
-        if (result.status === 'FULL_KO') {
-            displayMessage(
-                `Repetitions at moves ${result.repetitions.join(', ')}`,
-                'error',
-                'Full KO violation',
-            );
-            return;
-        }
-        return;
-    },
-}));
 
 export function Game() {
-    const gameStatesRecord = useGameStore((state) => state.gameStatesRecord);
-    const applyAction = useGameStore((state) => state.applyAction);
+    const [gameStatesRecord, setGameStatesRecord] = useState(
+        initialGameStatesRecord,
+    );
+    const endGame = useCallback(() => {
+        displayMessage('Game ended', 'info', 'Game Over');
+    }, []);
+    const applyAction = useCallback(
+        (action: GameAction) => {
+            const newGameStateRecord =
+                deepCopyGameStatesRecord(gameStatesRecord);
+            const result = transitGameState(newGameStateRecord, action);
+            if (result.status === 'INVALID') {
+                return;
+            }
+            if (result.status === 'END') {
+                endGame();
+                setGameStatesRecord(newGameStateRecord);
+                return;
+            }
+            if (result.status === 'OK') {
+                setGameStatesRecord(newGameStateRecord);
+                return;
+            }
+            if (result.status === 'KO') {
+                displayMessage(
+                    `Repetitions at moves ${result.repetitions.join(', ')}`,
+                    'error',
+                    'KO violation',
+                );
+                return;
+            }
+            if (result.status === 'FULL_KO') {
+                displayMessage(
+                    `Repetitions at moves ${result.repetitions.join(', ')}`,
+                    'error',
+                    'Full KO violation',
+                );
+                return;
+            }
+            return;
+        },
+        [endGame, gameStatesRecord],
+    );
 
-    if (gameStatesRecord.historicalGameStates.length === 0) {
-        throw new Error('empty states record');
-    }
     const lastGameState = gameStatesRecord.historicalGameStates.at(-1)!;
     // This function handles placing a new stone on the board
     const handleIntersectionClick = useCallback(

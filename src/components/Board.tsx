@@ -59,6 +59,24 @@ export function Board({
         return lines;
     };
 
+    const renderDots = () => {
+        return dots.map(([i, j]) => {
+            const cx = (j + 1 / 2) * cellSizePx;
+            const cy = (i + 1 / 2) * cellSizePx;
+            const radius = cellSizePx * 0.1; // Small dot
+
+            return (
+                <circle
+                    key={`d-${i}-${j}`}
+                    cx={cx}
+                    cy={cy}
+                    r={radius}
+                    fill="black"
+                />
+            );
+        });
+    };
+
     // Renders invisible target areas on intersections for clicking
     const renderIntersections = () => {
         const targets = [];
@@ -113,24 +131,6 @@ export function Board({
         return stones;
     };
 
-    const renderDots = () => {
-        return dots.map(([i, j]) => {
-            const cx = (j + 1 / 2) * cellSizePx;
-            const cy = (i + 1 / 2) * cellSizePx;
-            const radius = cellSizePx * 0.1; // Small dot
-
-            return (
-                <circle
-                    key={`d-${i}-${j}`}
-                    cx={cx}
-                    cy={cy}
-                    r={radius}
-                    fill="black"
-                />
-            );
-        });
-    };
-
     const svgSizePx = boardSize * cellSizePx;
     return (
         <svg
@@ -140,8 +140,8 @@ export function Board({
             viewBox={`0 0 ${svgSizePx} ${svgSizePx}`}
         >
             {renderGridLines()}
-            {renderIntersections()}
             {renderDots()}
+            {renderIntersections()}
             {renderStones()}
         </svg>
     );
