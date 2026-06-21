@@ -1,4 +1,3 @@
-import { BoardSize, FullKo } from '../components/Game.tsx';
 import {
     type CellState,
     CellStates,
@@ -22,7 +21,7 @@ export function isWithinBounds(
     return 0 <= r && r < boardSize && 0 <= c && c < boardSize;
 }
 
-function getNeighbors([r, c]: Coordinates): Coordinates[] {
+function getNeighbors([r, c]: Coordinates, boardSize: number): Coordinates[] {
     const neighbors: Coordinates[] = [];
     const directions = [
         [0, 1],
@@ -33,7 +32,7 @@ function getNeighbors([r, c]: Coordinates): Coordinates[] {
     for (const [dr, dc] of directions) {
         const newR = r + dr;
         const newC = c + dc;
-        if (isWithinBounds([newR, newC], BoardSize)) {
+        if (isWithinBounds([newR, newC], boardSize)) {
             neighbors.push([newR, newC]);
         }
     }
@@ -44,7 +43,8 @@ function findGroup(
     board: CellState[][],
     [r, c]: Coordinates,
 ): { stones: Coordinates[]; liberties: Coordinates[] } {
-    if (!isWithinBounds([r, c], BoardSize)) {
+    const boardSize = board.length;
+    if (!isWithinBounds([r, c], boardSize)) {
         return { stones: [], liberties: [] };
     }
 
@@ -63,7 +63,7 @@ function findGroup(
         const [currR, currC] = stack.pop()!;
         stones.push([currR, currC]);
 
-        const neighbors = getNeighbors([currR, currC]);
+        const neighbors = getNeighbors([currR, currC], boardSize);
         for (const [nR, nC] of neighbors) {
             const neighborColor = board[nR][nC];
             const neighborStr = coordToStr([nR, nC]);
@@ -91,7 +91,8 @@ function checkAndApplyCaptures(
     board: CellState[][],
     [r, c]: Coordinates,
 ): number {
-    if (!isWithinBounds([r, c], BoardSize)) {
+    const boardSize = board.length;
+    if (!isWithinBounds([r, c], boardSize)) {
         return 0;
     }
     const playerColor: CellState = board[r][c];
@@ -102,7 +103,7 @@ function checkAndApplyCaptures(
         playerColor === CellStates.Black ? CellStates.White : CellStates.Black;
     let totalCaptures = 0;
 
-    const neighbors = getNeighbors([r, c]);
+    const neighbors = getNeighbors([r, c], boardSize);
     for (const [nR, nC] of neighbors) {
         if (board[nR][nC] !== opponentColor) {
             continue;
@@ -124,7 +125,8 @@ function transitGameStateIgnoreKo(
     [r, c]: Coordinates,
     player: Player,
 ): boolean {
-    if (!isWithinBounds([r, c], BoardSize)) {
+    const boardSize = gameState.board.length;
+    if (!isWithinBounds([r, c], boardSize)) {
         logMessage(`Spot (${r},${c}) is out of bounds.`, 'INFO');
         return false;
     }
@@ -221,6 +223,7 @@ export function checkAndAddNewHistoricalGameState(
 export function transitGameState(
     gameStateRecord: GameStatesRecord,
     action: GameAction,
+    fullKo: boolean,
 ):
     | { status: 'END' | 'INVALID' }
     | { status: 'OK' | 'KO' | 'FULL_KO'; repetitions: number[] } {
@@ -241,7 +244,7 @@ export function transitGameState(
         const { status, repetitions } = checkAndAddNewHistoricalGameState(
             gameStateRecord,
             newGameState,
-            FullKo,
+            fullKo,
         );
         if (status !== 'OK') {
             throw new Error('unexpected status on PASS');
@@ -262,7 +265,7 @@ export function transitGameState(
         const { status, repetitions } = checkAndAddNewHistoricalGameState(
             gameStateRecord,
             newGameState,
-            FullKo,
+            fullKo,
         );
         return { status, repetitions };
     }

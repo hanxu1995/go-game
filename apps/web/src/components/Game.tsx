@@ -1,35 +1,19 @@
 import { useCallback, useState } from 'react';
 
-import {
-    checkAndAddNewHistoricalGameState,
-    transitGameState,
-} from '../game/game.ts';
+import { BoardSize, CellSizePx, Dots, FullKo } from '../config.ts';
+import { displayMessage } from '../utils/message.ts';
+import { Board } from './Board';
+import './Game.css';
 import {
     CellStates,
     type Coordinates,
     type GameAction,
     type GameState,
     type GameStatesRecord,
-} from '../types/common.ts';
-import { displayMessage } from '../utils/message.ts';
-import { deepCopyGameStatesRecord } from '../utils/utils.ts';
-import { Board } from './Board';
-import './Game.css';
-
-const CellSizePx = 50;
-const Dots: Coordinates[] = [
-    [3, 3],
-    [3, 9],
-    [3, 15],
-    [9, 3],
-    [9, 9],
-    [9, 15],
-    [15, 3],
-    [15, 9],
-    [15, 15],
-];
-export const BoardSize = 19;
-export const FullKo = true;
+    checkAndAddNewHistoricalGameState,
+    deepCopyGameStatesRecord,
+    transitGameState,
+} from '@go-game/shared';
 
 const initialGameState: GameState = {
     board: Array.from({ length: BoardSize }, () =>
@@ -61,7 +45,7 @@ export function Game() {
         (action: GameAction) => {
             const newGameStateRecord =
                 deepCopyGameStatesRecord(gameStatesRecord);
-            const result = transitGameState(newGameStateRecord, action);
+            const result = transitGameState(newGameStateRecord, action, FullKo);
             if (result.status === 'INVALID') {
                 return;
             }

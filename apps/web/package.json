@@ -1,0 +1,36 @@
+{
+  "name": "@go-game/web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "deploy": "gh-pages -d dist",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:css": "stylelint '**/*.css'",
+    "lint:css:fix": "stylelint '**/*.css' --fix"
+  },
+  "dependencies": {
+    "@emotion/react": "latest",
+    "@emotion/styled": "latest",
+    "@fontsource/roboto": "latest",
+    "@go-game/shared": "workspace:*",
+    "@mui/icons-material": "latest",
+    "@mui/material": "latest",
+    "notistack": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-router": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "gh-pages": "latest",
+    "vite": "latest"
+  }
+}

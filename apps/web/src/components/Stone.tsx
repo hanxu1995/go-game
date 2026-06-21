@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import type { Coordinates } from '../types/common.ts';
+import type { Coordinates } from '@go-game/shared';
 
 export interface StoneProps {
     coordinates: Coordinates;

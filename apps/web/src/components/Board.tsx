@@ -1,10 +1,6 @@
-import {
-    type CellState,
-    CellStates,
-    type Coordinates,
-} from '../types/common.ts';
 import './Board.css';
 import { Stone } from './Stone.tsx';
+import { type CellState, CellStates, type Coordinates } from '@go-game/shared';
 
 // The distance between each line/intersection
 const GRID_LINE_WIDTH = 2;
