@@ -175,6 +175,8 @@ function removeLastHistoricalGameState(gameStateRecord: GameStatesRecord) {
     if (gameStateRecord.gameStateToMoves[stateString].length === 0) {
         delete gameStateRecord.gameStateToMoves[stateString];
     }
+    // Keep the move log aligned 1:1 with historicalGameStates.
+    gameStateRecord.moves.pop();
 }
 
 export function checkAndAddNewHistoricalGameState(
@@ -231,6 +233,7 @@ export function transitGameState(
         throw new Error('empty states record');
     }
     const lastGameState = gameStateRecord.historicalGameStates.at(-1)!;
+    const mover = lastGameState.currentPlayer;
     const newGameState = deepCopyGameState(lastGameState);
     if (action.type === 'PASS') {
         if (lastGameState.lastMove === 'PASS') {
@@ -249,6 +252,7 @@ export function transitGameState(
         if (status !== 'OK') {
             throw new Error('unexpected status on PASS');
         }
+        gameStateRecord.moves.push({ player: mover, action });
         return { status, repetitions };
     }
     if (action.type === 'PLAY') {
@@ -267,7 +271,43 @@ export function transitGameState(
             newGameState,
             fullKo,
         );
+        if (status === 'OK') {
+            gameStateRecord.moves.push({ player: mover, action });
+        }
         return { status, repetitions };
     }
     return { status: 'INVALID' };
+}
+
+// Returns a grid where each cell holds the move number (1-based, aligned with
+// the move log) of the stone currently sitting there, or 0 when empty.
+// Derived purely from board snapshots — no capture logic is duplicated.
+export function buildMoveNumberBoard(
+    historicalGameStates: GameState[],
+): number[][] {
+    const lastState = historicalGameStates.at(-1)!;
+    const boardSize = lastState.board.length;
+    const moveNumbers: number[][] = Array.from({ length: boardSize }, () =>
+        new Array<number>(boardSize).fill(0),
+    );
+    for (let i = 1; i < historicalGameStates.length; ++i) {
+        const prevBoard = historicalGameStates[i - 1].board;
+        const currBoard = historicalGameStates[i].board;
+        for (let r = 0; r < boardSize; ++r) {
+            for (let c = 0; c < boardSize; ++c) {
+                if (
+                    prevBoard[r][c] === CellStates.Empty &&
+                    currBoard[r][c] !== CellStates.Empty
+                ) {
+                    moveNumbers[r][c] = i;
+                } else if (
+                    prevBoard[r][c] !== CellStates.Empty &&
+                    currBoard[r][c] === CellStates.Empty
+                ) {
+                    moveNumbers[r][c] = 0;
+                }
+            }
+        }
+    }
+    return moveNumbers;
 }

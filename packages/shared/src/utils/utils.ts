@@ -31,6 +31,7 @@ export function deepCopyGameStatesRecord(
                 ([key, value]) => [key, [...value]],
             ),
         ),
+        moves: [...gameStateRecord.moves],
     };
 }
 

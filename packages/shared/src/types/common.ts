@@ -21,7 +21,15 @@ export interface GameState {
     whiteCapturedOpponent: number;
 }
 
+export interface Move {
+    player: Player;
+    action: GameAction;
+}
+
 export interface GameStatesRecord {
     historicalGameStates: GameState[];
     gameStateToMoves: Record<string, number[]>;
+    // Authoritative ordered move log (手顺), aligned 1:1 with
+    // historicalGameStates[1..]: moves[i] produced historicalGameStates[i + 1].
+    moves: Move[];
 }

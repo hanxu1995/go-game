@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { BoardSize, CellSizePx, Dots, FullKo } from '../config.ts';
+import { downloadTextFile } from '../utils/download.ts';
 import { displayMessage } from '../utils/message.ts';
 import { Board } from './Board';
 import './Game.css';
@@ -10,10 +11,23 @@ import {
     type GameAction,
     type GameState,
     type GameStatesRecord,
+    buildMoveNumberBoard,
     checkAndAddNewHistoricalGameState,
     deepCopyGameStatesRecord,
+    toSGF,
     transitGameState,
 } from '@go-game/shared';
+import Button from '@mui/material/Button';
+
+type MoveNumberMode = 'none' | 'all' | 'last10';
+
+const LAST_N = 10;
+const MOVE_NUMBER_MODE_ORDER: MoveNumberMode[] = ['none', 'all', 'last10'];
+const MOVE_NUMBER_MODE_LABEL: Record<MoveNumberMode, string> = {
+    none: '手顺：关',
+    all: '手顺：全部',
+    last10: `手顺：最后${LAST_N}手`,
+};
 
 const initialGameState: GameState = {
     board: Array.from({ length: BoardSize }, () =>
@@ -27,6 +41,7 @@ const initialGameState: GameState = {
 const initialGameStatesRecord: GameStatesRecord = {
     historicalGameStates: [],
     gameStateToMoves: {},
+    moves: [],
 };
 checkAndAddNewHistoricalGameState(
     initialGameStatesRecord,
@@ -38,6 +53,9 @@ export function Game() {
     const [gameStatesRecord, setGameStatesRecord] = useState(
         initialGameStatesRecord,
     );
+    const [moveNumberMode, setMoveNumberMode] =
+        useState<MoveNumberMode>('none');
+
     const endGame = useCallback(() => {
         displayMessage('Game ended', 'info', 'Game Over');
     }, []);
@@ -89,6 +107,32 @@ export function Game() {
         [applyAction],
     );
 
+    const cycleMoveNumberMode = useCallback(() => {
+        setMoveNumberMode((mode) => {
+            const nextIndex =
+                (MOVE_NUMBER_MODE_ORDER.indexOf(mode) + 1) %
+                MOVE_NUMBER_MODE_ORDER.length;
+            return MOVE_NUMBER_MODE_ORDER[nextIndex];
+        });
+    }, []);
+
+    const handleDownloadSgf = useCallback(() => {
+        downloadTextFile('game.sgf', toSGF(gameStatesRecord.moves, BoardSize));
+    }, [gameStatesRecord]);
+
+    // Move number painted on each stone (0 = empty / no stone there).
+    const moveNumberBoard = useMemo(
+        () => buildMoveNumberBoard(gameStatesRecord.historicalGameStates),
+        [gameStatesRecord],
+    );
+    const totalMoves = gameStatesRecord.moves.length;
+    const minVisibleMoveNumber =
+        moveNumberMode === 'none'
+            ? Number.POSITIVE_INFINITY
+            : moveNumberMode === 'last10'
+              ? totalMoves - LAST_N + 1
+              : 1;
+
     return (
         <div className="game">
             <h1>围棋-严格禁全同</h1>
@@ -99,11 +143,33 @@ export function Game() {
                 {lastGameState.whiteCapturedOpponent}
             </p>
 
+            <div
+                style={{
+                    display: 'flex',
+                    gap: 8,
+                    justifyContent: 'center',
+                    margin: '8px 0',
+                }}
+            >
+                <Button variant="outlined" onClick={cycleMoveNumberMode}>
+                    {MOVE_NUMBER_MODE_LABEL[moveNumberMode]}
+                </Button>
+                <Button
+                    variant="outlined"
+                    onClick={handleDownloadSgf}
+                    disabled={totalMoves === 0}
+                >
+                    下载棋谱
+                </Button>
+            </div>
+
             <Board
                 cellSizePx={CellSizePx}
                 boardSize={BoardSize}
                 dots={Dots}
                 boardState={lastGameState.board}
+                moveNumberBoard={moveNumberBoard}
+                minVisibleMoveNumber={minVisibleMoveNumber}
                 onIntersectionClick={handleIntersectionClick}
             />
         </div>
