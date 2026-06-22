@@ -18,6 +18,8 @@ import {
     transitGameState,
 } from '@go-game/shared';
 import Button from '@mui/material/Button';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
 
 type MoveNumberMode = 'none' | 'all' | 'last10';
 
@@ -55,6 +57,7 @@ export function Game() {
     );
     const [moveNumberMode, setMoveNumberMode] =
         useState<MoveNumberMode>('none');
+    const [showCoordinates, setShowCoordinates] = useState(true);
 
     const endGame = useCallback(() => {
         displayMessage('Game ended', 'info', 'Game Over');
@@ -147,10 +150,22 @@ export function Game() {
                 style={{
                     display: 'flex',
                     gap: 8,
+                    alignItems: 'center',
                     justifyContent: 'center',
                     margin: '8px 0',
                 }}
             >
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={showCoordinates}
+                            onChange={(_event, checked) =>
+                                setShowCoordinates(checked)
+                            }
+                        />
+                    }
+                    label="坐标"
+                />
                 <Button variant="outlined" onClick={cycleMoveNumberMode}>
                     {MOVE_NUMBER_MODE_LABEL[moveNumberMode]}
                 </Button>
@@ -170,6 +185,7 @@ export function Game() {
                 boardState={lastGameState.board}
                 moveNumberBoard={moveNumberBoard}
                 minVisibleMoveNumber={minVisibleMoveNumber}
+                showCoordinates={showCoordinates}
                 onIntersectionClick={handleIntersectionClick}
             />
         </div>
