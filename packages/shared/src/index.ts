@@ -16,9 +16,9 @@ export type {
     Player,
 } from './types/common.ts';
 export {
+    cloneGameStatesRecord,
     coordToStr,
     deepCopyGameState,
-    deepCopyGameStatesRecord,
     gameStateToStr,
     logMessage,
 } from './utils/utils.ts';

@@ -13,7 +13,7 @@ import {
     type GameStatesRecord,
     buildMoveNumberBoard,
     checkAndAddNewHistoricalGameState,
-    deepCopyGameStatesRecord,
+    cloneGameStatesRecord,
     toSGF,
     transitGameState,
 } from '@go-game/shared';
@@ -64,8 +64,7 @@ export function Game() {
     }, []);
     const applyAction = useCallback(
         (action: GameAction) => {
-            const newGameStateRecord =
-                deepCopyGameStatesRecord(gameStatesRecord);
+            const newGameStateRecord = cloneGameStatesRecord(gameStatesRecord);
             const result = transitGameState(newGameStateRecord, action, FullKo);
             if (result.status === 'INVALID') {
                 return;

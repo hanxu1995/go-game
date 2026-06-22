@@ -19,13 +19,17 @@ export function deepCopyGameState(gameState: GameState): GameState {
     };
 }
 
-export function deepCopyGameStatesRecord(
+// Returns a record the engine can advance without touching the original (needed
+// for React immutability). Historical game states are immutable once recorded —
+// the engine only appends a freshly-built state or pops the last one, never
+// mutates an existing state — so we SHARE them by reference instead of deep
+// copying every board. Only the mutable containers (the arrays and the ko map's
+// per-position lists, which the engine pushes/pops) get fresh copies.
+export function cloneGameStatesRecord(
     gameStateRecord: GameStatesRecord,
 ): GameStatesRecord {
     return {
-        historicalGameStates: gameStateRecord.historicalGameStates.map(
-            (gameState) => deepCopyGameState(gameState),
-        ),
+        historicalGameStates: [...gameStateRecord.historicalGameStates],
         gameStateToMoves: Object.fromEntries(
             Object.entries(gameStateRecord.gameStateToMoves).map(
                 ([key, value]) => [key, [...value]],
