@@ -11,8 +11,10 @@ function coordToSgf([r, c]: Coordinates): string {
 // Serialise a move log to a minimal but standard SGF (FF[4], GM[1] = Go).
 // Any go viewer (Sabaki / EidoGo / 弈客 …) can open it. For 联棋 we can later
 // attach who played each move via node comments (C[...]).
-export function toSGF(moves: Move[], boardSize: number): string {
-    let sgf = `(;FF[4]GM[1]SZ[${boardSize}]`;
+// `komi` is in Chinese 子; SGF stores komi in 目 via KM = komi * 2, and
+// RU[Chinese] flags the ruleset.
+export function toSGF(moves: Move[], boardSize: number, komi: number): string {
+    let sgf = `(;FF[4]GM[1]SZ[${boardSize}]RU[Chinese]KM[${komi * 2}]`;
     for (const move of moves) {
         const color = move.player === 'black' ? 'B' : 'W';
         // Empty value = pass in FF[4].

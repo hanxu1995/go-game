@@ -5,6 +5,8 @@ export {
     transitGameState,
 } from './game/game.ts';
 export { toSGF } from './sgf/sgf.ts';
+export { computeAreaScore } from './score/score.ts';
+export type { ScoreResult } from './score/score.ts';
 export { CellStates } from './types/common.ts';
 export type {
     CellState,

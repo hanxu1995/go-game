@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { BoardSize, CellSizePx, Dots, FullKo } from '../config.ts';
+import { BoardSize, CellSizePx, DefaultKomi, Dots, FullKo } from '../config.ts';
 import { downloadTextFile } from '../utils/download.ts';
 import { displayMessage } from '../utils/message.ts';
 import { Board } from './Board';
@@ -11,15 +11,18 @@ import {
     type GameAction,
     type GameState,
     type GameStatesRecord,
+    type ScoreResult,
     buildMoveNumberBoard,
     checkAndAddNewHistoricalGameState,
     cloneGameStatesRecord,
+    computeAreaScore,
     toSGF,
     transitGameState,
 } from '@go-game/shared';
 import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
+import TextField from '@mui/material/TextField';
 
 type MoveNumberMode = 'none' | 'all' | 'last10';
 
@@ -58,10 +61,10 @@ export function Game() {
     const [moveNumberMode, setMoveNumberMode] =
         useState<MoveNumberMode>('none');
     const [showCoordinates, setShowCoordinates] = useState(true);
+    const [score, setScore] = useState<ScoreResult | null>(null);
+    const [gameOver, setGameOver] = useState(false);
+    const [komi, setKomi] = useState(DefaultKomi);
 
-    const endGame = useCallback(() => {
-        displayMessage('Game ended', 'info', 'Game Over');
-    }, []);
     const applyAction = useCallback(
         (action: GameAction) => {
             const newGameStateRecord = cloneGameStatesRecord(gameStatesRecord);
@@ -70,12 +73,19 @@ export function Game() {
                 return;
             }
             if (result.status === 'END') {
-                endGame();
+                // Both players passed: score the final position (area scoring).
+                const finalBoard =
+                    newGameStateRecord.historicalGameStates.at(-1)!.board;
                 setGameStatesRecord(newGameStateRecord);
+                setScore(computeAreaScore(finalBoard, komi));
+                setGameOver(true);
                 return;
             }
             if (result.status === 'OK') {
+                // A new move resumes play and invalidates any shown score.
                 setGameStatesRecord(newGameStateRecord);
+                setScore(null);
+                setGameOver(false);
                 return;
             }
             if (result.status === 'KO') {
@@ -96,7 +106,7 @@ export function Game() {
             }
             return;
         },
-        [endGame, gameStatesRecord],
+        [gameStatesRecord, komi],
     );
 
     const lastGameState = gameStatesRecord.historicalGameStates.at(-1)!;
@@ -109,6 +119,16 @@ export function Game() {
         [applyAction],
     );
 
+    const handlePass = useCallback(() => {
+        applyAction({ type: 'PASS' });
+    }, [applyAction]);
+
+    // On-demand counting of the current position (does not end the game).
+    const handleScore = useCallback(() => {
+        setScore(computeAreaScore(lastGameState.board, komi));
+        setGameOver(false);
+    }, [lastGameState, komi]);
+
     const cycleMoveNumberMode = useCallback(() => {
         setMoveNumberMode((mode) => {
             const nextIndex =
@@ -119,8 +139,11 @@ export function Game() {
     }, []);
 
     const handleDownloadSgf = useCallback(() => {
-        downloadTextFile('game.sgf', toSGF(gameStatesRecord.moves, BoardSize));
-    }, [gameStatesRecord]);
+        downloadTextFile(
+            'game.sgf',
+            toSGF(gameStatesRecord.moves, BoardSize, komi),
+        );
+    }, [gameStatesRecord, komi]);
 
     // Move number painted on each stone (0 = empty / no stone there).
     const moveNumberBoard = useMemo(
@@ -138,22 +161,71 @@ export function Game() {
     return (
         <div className="game">
             <h1>围棋-严格禁全同</h1>
-            <p>{`${lastGameState.currentPlayer === 'black' ? '黑' : '白'}方行棋`}</p>
+            <p>
+                {gameOver
+                    ? '对局结束'
+                    : `${lastGameState.currentPlayer === 'black' ? '黑' : '白'}方行棋`}
+            </p>
             <p>
                 黑方提子：{lastGameState.blackCapturedOpponent}
                 &nbsp;&nbsp;&nbsp;白方提子：
                 {lastGameState.whiteCapturedOpponent}
             </p>
 
+            {score && (
+                <div
+                    style={{
+                        margin: '8px auto',
+                        padding: '8px 12px',
+                        maxWidth: 'fit-content',
+                        border: '1px solid #bbb',
+                        borderRadius: 6,
+                        background: '#f6f6f6',
+                    }}
+                >
+                    <div>
+                        {`${gameOver ? '对局结束' : '数子'} · ${
+                            score.winner === 'draw'
+                                ? '平局'
+                                : `${score.winner === 'black' ? '黑' : '白'}胜 ${score.margin} 子`
+                        }`}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                        {`黑 ${score.blackArea} 子 · 白 ${score.whiteArea} 子（贴目 ${score.komi} 子 / ${score.komi * 2} 目）`}
+                    </div>
+                </div>
+            )}
+
             <div
                 style={{
                     display: 'flex',
                     gap: 8,
+                    flexWrap: 'wrap',
                     alignItems: 'center',
                     justifyContent: 'center',
                     margin: '8px 0',
                 }}
             >
+                <Button variant="contained" onClick={handlePass}>
+                    停一手
+                </Button>
+                <Button variant="outlined" onClick={handleScore}>
+                    数子
+                </Button>
+                <TextField
+                    label="贴目(子)"
+                    type="number"
+                    size="small"
+                    value={komi}
+                    onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (!Number.isNaN(v)) {
+                            setKomi(v);
+                        }
+                    }}
+                    sx={{ width: 110 }}
+                    slotProps={{ htmlInput: { step: 0.25, min: 0 } }}
+                />
                 <FormControlLabel
                     control={
                         <Switch
