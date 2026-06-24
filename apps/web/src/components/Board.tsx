@@ -12,8 +12,8 @@ export interface BoardProps {
     boardSize: number; // e.g., 19 for 19x19
     dots: Coordinates[];
     boardState: CellState[][];
-    moveNumberBoard: number[][]; // move number that placed each stone (0 = empty)
-    minVisibleMoveNumber: number; // only paint numbers >= this (Infinity hides all)
+    moveNumberBoard?: number[][]; // move number that placed each stone (0 = empty)
+    minVisibleMoveNumber?: number; // paint numbers >= this (omit/Infinity hides all)
     showCoordinates: boolean;
     onIntersectionClick: ([row, col]: Coordinates) => void;
 }
@@ -128,7 +128,7 @@ export function Board({
                 } else {
                     continue;
                 }
-                const moveNumber = moveNumberBoard[i][j];
+                const moveNumber = moveNumberBoard?.[i]?.[j] ?? 0;
                 stones.push(
                     <Stone
                         key={`s-${i}-${j}-${color}`}
@@ -136,7 +136,8 @@ export function Board({
                         color={color}
                         cellSizePx={cellSizePx}
                         moveNumber={
-                            moveNumber >= minVisibleMoveNumber
+                            moveNumber >=
+                            (minVisibleMoveNumber ?? Number.POSITIVE_INFINITY)
                                 ? moveNumber
                                 : undefined
                         }

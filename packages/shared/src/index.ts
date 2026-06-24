@@ -7,6 +7,12 @@ export {
 export { toSGF } from './sgf/sgf.ts';
 export { computeAreaScore } from './score/score.ts';
 export type { ScoreResult } from './score/score.ts';
+export type {
+    ClientToServerEvents,
+    RoomState,
+    Seat,
+    ServerToClientEvents,
+} from './protocol/protocol.ts';
 export { CellStates } from './types/common.ts';
 export type {
     CellState,

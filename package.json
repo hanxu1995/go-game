@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter @go-game/web dev",
-    "build": "pnpm --filter @go-game/shared typecheck && pnpm --filter @go-game/web build",
+    "dev:server": "pnpm --filter @go-game/server dev",
+    "build": "pnpm --filter @go-game/shared typecheck && pnpm --filter @go-game/server typecheck && pnpm --filter @go-game/web build",
     "typecheck": "pnpm --filter @go-game/shared typecheck && pnpm --filter @go-game/web exec tsc -b",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

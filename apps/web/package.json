@@ -23,7 +23,8 @@
     "notistack": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "react-router": "latest"
+    "react-router": "latest",
+    "socket.io-client": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
