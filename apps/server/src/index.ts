@@ -4,6 +4,7 @@ import {
     type GameAction,
     type GameState,
     type GameStatesRecord,
+    type Player,
     type RoomState,
     type RoomSummary,
     type Seat,
@@ -19,7 +20,7 @@ const BOARD_SIZE = 19;
 const FULL_KO = true;
 const LOBBY = 'lobby';
 const PORT = Number(process.env.PORT ?? 3001);
-// How long a disconnected player keeps their seat before it's released.
+// How long a disconnected player keeps their place before being removed.
 const GRACE_MS = Number(process.env.GRACE_MS ?? 60_000);
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -27,9 +28,13 @@ type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 interface Room {
     id: string;
+    owner: string; // playerId of the room owner (controls the roster)
     record: GameStatesRecord;
     gameOver: boolean;
-    seats: { black: string | null; white: string | null }; // playerId
+    // 联棋: each color is an ordered team of playerIds.
+    teams: { black: string[]; white: string[] };
+    // How many moves each color has made; the next mover rotates through the team.
+    turnIndex: { black: number; white: number };
     connections: Map<string, Set<string>>; // playerId -> live socket ids
     disconnectTimers: Map<string, ReturnType<typeof setTimeout>>;
 }
@@ -61,9 +66,11 @@ function makeRoom(): Room {
     roomCounter += 1;
     const room: Room = {
         id: `room-${roomCounter}`,
+        owner: '',
         record: createInitialRecord(BOARD_SIZE),
         gameOver: false,
-        seats: { black: null, white: null },
+        teams: { black: [], white: [] },
+        turnIndex: { black: 0, white: 0 },
         connections: new Map(),
         disconnectTimers: new Map(),
     };
@@ -75,8 +82,62 @@ function isConnected(room: Room, playerId: string | null): boolean {
     return playerId !== null && (room.connections.get(playerId)?.size ?? 0) > 0;
 }
 
+function seatOf(room: Room, playerId: string): Seat {
+    if (room.teams.black.includes(playerId)) {
+        return 'black';
+    }
+    if (room.teams.white.includes(playerId)) {
+        return 'white';
+    }
+    return 'spectator';
+}
+
+function removeFromTeam(room: Room, playerId: string): void {
+    const bi = room.teams.black.indexOf(playerId);
+    if (bi >= 0) {
+        room.teams.black.splice(bi, 1);
+        return;
+    }
+    const wi = room.teams.white.indexOf(playerId);
+    if (wi >= 0) {
+        room.teams.white.splice(wi, 1);
+    }
+}
+
+function spectatorsOf(room: Room): string[] {
+    const seated = new Set([...room.teams.black, ...room.teams.white]);
+    return [...room.connections.keys()].filter((p) => !seated.has(p));
+}
+
+// If the owner is gone, hand ownership to the next available person.
+function ensureOwner(room: Room): void {
+    const present =
+        room.owner !== '' &&
+        (seatOf(room, room.owner) !== 'spectator' ||
+            room.connections.has(room.owner));
+    if (present) {
+        return;
+    }
+    room.owner =
+        room.teams.black[0] ??
+        room.teams.white[0] ??
+        [...room.connections.keys()][0] ??
+        '';
+}
+
+// The playerId who must play this turn: the current color's rotation member.
+function currentMover(room: Room): string | null {
+    const color = room.record.historicalGameStates.at(-1)!.currentPlayer;
+    const team = room.teams[color];
+    if (team.length === 0) {
+        return null;
+    }
+    return team[room.turnIndex[color] % team.length];
+}
+
 function toRoomState(room: Room): RoomState {
     const state = room.record.historicalGameStates.at(-1)!;
+    const mover = currentMover(room);
     return {
         board: state.board,
         currentPlayer: state.currentPlayer,
@@ -85,15 +146,23 @@ function toRoomState(room: Room): RoomState {
         moveCount: room.record.moves.length,
         lastMove: state.lastMove,
         gameOver: room.gameOver,
-        blackConnected: isConnected(room, room.seats.black),
-        whiteConnected: isConnected(room, room.seats.white),
+        owner: room.owner,
+        blackTeam: [...room.teams.black],
+        whiteTeam: [...room.teams.white],
+        spectators: spectatorsOf(room),
+        connected: [...room.connections.keys()],
+        currentMover: mover,
+        currentMoverConnected: mover !== null && isConnected(room, mover),
     };
 }
 
 function roomSummary(room: Room): RoomSummary {
     return {
         id: room.id,
-        players: (room.seats.black ? 1 : 0) + (room.seats.white ? 1 : 0),
+        players:
+            room.teams.black.length +
+            room.teams.white.length +
+            spectatorsOf(room).length,
         gameOver: room.gameOver,
         moveCount: room.record.moves.length,
     };
@@ -103,45 +172,11 @@ function listRooms(): RoomSummary[] {
     return [...rooms.values()].map(roomSummary);
 }
 
-function seatOf(room: Room, playerId: string): Seat {
-    if (room.seats.black === playerId) {
-        return 'black';
-    }
-    if (room.seats.white === playerId) {
-        return 'white';
-    }
-    return 'spectator';
-}
-
-function claimSeat(room: Room, playerId: string): Seat {
-    const existing = seatOf(room, playerId);
-    if (existing !== 'spectator') {
-        return existing; // reconnect / already seated: keep it
-    }
-    if (room.seats.black === null) {
-        room.seats.black = playerId;
-        return 'black';
-    }
-    if (room.seats.white === null) {
-        room.seats.white = playerId;
-        return 'white';
-    }
-    return 'spectator';
-}
-
-function releaseSeat(room: Room, playerId: string): void {
-    if (room.seats.black === playerId) {
-        room.seats.black = null;
-    } else if (room.seats.white === playerId) {
-        room.seats.white = null;
-    }
-}
-
 function isRoomEmpty(room: Room): boolean {
     return (
         room.connections.size === 0 &&
-        room.seats.black === null &&
-        room.seats.white === null &&
+        room.teams.black.length === 0 &&
+        room.teams.white.length === 0 &&
         room.disconnectTimers.size === 0
     );
 }
@@ -178,6 +213,8 @@ function broadcastLobby(): void {
     io.to(LOBBY).emit('rooms', listRooms());
 }
 
+// Register a connection in a room. Does NOT assign a team — new joiners are
+// spectators until the owner seats them; reconnects keep their existing seat.
 function enterRoom(socket: AppSocket, playerId: string, room: Room): void {
     socket.join(room.id);
     let sockets = room.connections.get(playerId);
@@ -191,13 +228,12 @@ function enterRoom(socket: AppSocket, playerId: string, room: Room): void {
         clearTimeout(pending);
         room.disconnectTimers.delete(playerId);
     }
-    const seat = claimSeat(room, playerId);
     playerRoom.set(playerId, room.id);
-    socket.emit('joined', { roomId: room.id, seat });
+    socket.emit('joined', { roomId: room.id, seat: seatOf(room, playerId) });
     io.to(room.id).emit('state', toRoomState(room));
 }
 
-// Explicit leave: free the seat immediately (unlike a disconnect, which holds it).
+// Explicit leave: remove from the team immediately (a disconnect holds it).
 function exitRoom(socket: AppSocket, playerId: string, room: Room): void {
     socket.leave(room.id);
     const sockets = room.connections.get(playerId);
@@ -212,10 +248,11 @@ function exitRoom(socket: AppSocket, playerId: string, room: Room): void {
         clearTimeout(pending);
         room.disconnectTimers.delete(playerId);
     }
-    releaseSeat(room, playerId);
+    removeFromTeam(room, playerId);
     if (playerRoom.get(playerId) === room.id) {
         playerRoom.delete(playerId);
     }
+    ensureOwner(room);
     io.to(room.id).emit('state', toRoomState(room));
     cleanupRoom(room);
 }
@@ -231,20 +268,18 @@ function handleMove(
         socket.emit('rejected', '不在房间里');
         return;
     }
-    const seat = seatOf(room, playerId);
-    if (seat === 'spectator') {
-        socket.emit('rejected', '观战者不能落子');
-        return;
-    }
-    const turn = room.record.historicalGameStates.at(-1)!.currentPlayer;
-    if (seat !== turn) {
+    if (currentMover(room) !== playerId) {
         socket.emit('rejected', '还没轮到你');
         return;
     }
+    const color: Player =
+        room.record.historicalGameStates.at(-1)!.currentPlayer;
     if (applyAuthoritative(room, action) === 'rejected') {
         socket.emit('rejected', '非法手');
         return;
     }
+    // The color that just moved advances to its next team member.
+    room.turnIndex[color] += 1;
     io.to(room.id).emit('state', toRoomState(room));
     broadcastLobby();
 }
@@ -259,31 +294,40 @@ function handleDisconnect(
         sockets.delete(socketId);
         if (sockets.size === 0) {
             room.connections.delete(playerId);
-            // Hold the seat briefly so a reconnect can reclaim room + seat.
+            // Hold a seated player's place briefly so a reconnect can reclaim it.
             if (seatOf(room, playerId) !== 'spectator') {
                 const release = setTimeout(() => {
-                    releaseSeat(room, playerId);
+                    removeFromTeam(room, playerId);
                     room.disconnectTimers.delete(playerId);
                     if (playerRoom.get(playerId) === room.id) {
                         playerRoom.delete(playerId);
                     }
+                    ensureOwner(room);
                     io.to(room.id).emit('state', toRoomState(room));
                     cleanupRoom(room);
                     broadcastLobby();
                 }, GRACE_MS);
                 room.disconnectTimers.set(playerId, release);
+            } else if (playerRoom.get(playerId) === room.id) {
+                // A spectator left: nothing to hold.
+                playerRoom.delete(playerId);
             }
         }
     }
+    ensureOwner(room);
     io.to(room.id).emit('state', toRoomState(room));
     cleanupRoom(room);
     broadcastLobby();
 }
 
 io.on('connection', (socket) => {
-    const rawId = socket.handshake.auth.playerId;
+    // Identity is the username the client entered (no accounts yet); falls back
+    // to the socket id for anonymous clients (which then can't reconnect).
+    const rawName = socket.handshake.auth.username;
     const playerId =
-        typeof rawId === 'string' && rawId.length > 0 ? rawId : socket.id;
+        typeof rawName === 'string' && rawName.trim().length > 0
+            ? rawName.trim()
+            : socket.id;
     let currentRoomId: string | null = null;
 
     // Reconnect straight back into the room held during the grace window.
@@ -310,6 +354,8 @@ io.on('connection', (socket) => {
             return;
         }
         const room = makeRoom();
+        room.owner = playerId;
+        room.teams.black.push(playerId); // creator plays black by default
         socket.leave(LOBBY);
         currentRoomId = room.id;
         enterRoom(socket, playerId, room);
@@ -327,7 +373,7 @@ io.on('connection', (socket) => {
         }
         socket.leave(LOBBY);
         currentRoomId = room.id;
-        enterRoom(socket, playerId, room);
+        enterRoom(socket, playerId, room); // joins as spectator (owner seats later)
         broadcastLobby();
     });
 
@@ -343,6 +389,35 @@ io.on('connection', (socket) => {
         socket.join(LOBBY);
         socket.emit('left');
         socket.emit('rooms', listRooms());
+        broadcastLobby();
+    });
+
+    socket.on('setTeam', ({ player, team }) => {
+        if (!currentRoomId) {
+            return;
+        }
+        const room = rooms.get(currentRoomId);
+        if (!room) {
+            return;
+        }
+        if (room.owner !== playerId) {
+            socket.emit('rejected', '只有房主可以调整座位');
+            return;
+        }
+        const present =
+            seatOf(room, player) !== 'spectator' ||
+            room.connections.has(player);
+        if (!present) {
+            socket.emit('rejected', '该玩家不在房间');
+            return;
+        }
+        removeFromTeam(room, player);
+        if (team === 'black') {
+            room.teams.black.push(player);
+        } else if (team === 'white') {
+            room.teams.white.push(player);
+        }
+        io.to(room.id).emit('state', toRoomState(room));
         broadcastLobby();
     });
 

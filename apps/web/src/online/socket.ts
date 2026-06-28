@@ -9,18 +9,9 @@ export type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 // Step 2: dev server is hard-coded. Make this an env var when we deploy.
 const SERVER_URL = 'http://localhost:3001';
-const PLAYER_ID_KEY = 'go-game:playerId';
 
-// A stable per-browser id so the server can restore our seat after a reconnect.
-function getPlayerId(): string {
-    let id = localStorage.getItem(PLAYER_ID_KEY);
-    if (!id) {
-        id = crypto.randomUUID();
-        localStorage.setItem(PLAYER_ID_KEY, id);
-    }
-    return id;
-}
-
-export function createSocket(): GameSocket {
-    return io(SERVER_URL, { auth: { playerId: getPlayerId() } });
+// Identity is the username the player enters before going online. No accounts
+// yet; later this becomes a real registered userId.
+export function createSocket(username: string): GameSocket {
+    return io(SERVER_URL, { auth: { username } });
 }

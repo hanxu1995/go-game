@@ -2,28 +2,35 @@ import type { RoomSummary } from '@go-game/shared';
 import Button from '@mui/material/Button';
 
 export interface LobbyProps {
+    username: string;
     connected: boolean;
     rooms: RoomSummary[];
     onCreate: () => void;
     onJoin: (roomId: string) => void;
     onRefresh: () => void;
+    onChangeUser: () => void;
 }
 
 export function Lobby({
+    username,
     connected,
     rooms,
     onCreate,
     onJoin,
     onRefresh,
+    onChangeUser,
 }: LobbyProps) {
     return (
         <div className="game">
             <h1>联机大厅</h1>
-            <p>{connected ? '已连接' : '连接服务器中…'}</p>
+            <p>
+                用户：{username} · {connected ? '已连接' : '连接服务器中…'}
+            </p>
             <div
                 style={{
                     display: 'flex',
                     gap: 8,
+                    flexWrap: 'wrap',
                     justifyContent: 'center',
                     margin: '8px 0',
                 }}
@@ -33,6 +40,9 @@ export function Lobby({
                 </Button>
                 <Button variant="outlined" onClick={onRefresh}>
                     刷新
+                </Button>
+                <Button variant="text" onClick={onChangeUser}>
+                    切换用户
                 </Button>
             </div>
             {rooms.length === 0 ? (
@@ -61,16 +71,15 @@ export function Lobby({
                             }}
                         >
                             <span>
-                                {room.id} · {room.players}/2 人 ·{' '}
-                                {room.moveCount} 手
-                                {room.gameOver ? ' · 已结束' : ''}
+                                {room.id} · {room.players} 人 · {room.moveCount}{' '}
+                                手{room.gameOver ? ' · 已结束' : ''}
                             </span>
                             <Button
                                 size="small"
                                 variant="outlined"
                                 onClick={() => onJoin(room.id)}
                             >
-                                {room.players >= 2 ? '观战' : '加入'}
+                                加入
                             </Button>
                         </li>
                     ))}

@@ -6,6 +6,8 @@ import { displayMessage } from '../utils/message.ts';
 import { Board } from './Board';
 import './Game.css';
 import { Lobby } from './Lobby.tsx';
+import { RoomRoster } from './RoomRoster.tsx';
+import { UsernameForm } from './UsernameForm.tsx';
 import type {
     Coordinates,
     RoomState,
@@ -16,6 +18,7 @@ import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 
+const USERNAME_KEY = 'go-game:username';
 const SEAT_LABEL: Record<Seat, string> = {
     black: '你执黑',
     white: '你执白',
@@ -24,15 +27,18 @@ const SEAT_LABEL: Record<Seat, string> = {
 
 export function OnlineGame() {
     const socketRef = useRef<GameSocket | null>(null);
+    const [username, setUsername] = useState<string | null>(null);
     const [connected, setConnected] = useState(false);
     const [rooms, setRooms] = useState<RoomSummary[]>([]);
     const [roomId, setRoomId] = useState<string | null>(null);
-    const [seat, setSeat] = useState<Seat | null>(null);
     const [roomState, setRoomState] = useState<RoomState | null>(null);
     const [showCoordinates, setShowCoordinates] = useState(true);
 
     useEffect(() => {
-        const socket = createSocket();
+        if (!username) {
+            return;
+        }
+        const socket = createSocket(username);
         socketRef.current = socket;
         socket.on('connect', () => setConnected(true));
         socket.on('disconnect', () => setConnected(false));
@@ -40,16 +46,11 @@ export function OnlineGame() {
         socket.on('rooms', (list) => {
             setRooms(list);
             setRoomId(null);
-            setSeat(null);
             setRoomState(null);
         });
-        socket.on('joined', ({ roomId: id, seat: mySeat }) => {
-            setRoomId(id);
-            setSeat(mySeat);
-        });
+        socket.on('joined', ({ roomId: id }) => setRoomId(id));
         socket.on('left', () => {
             setRoomId(null);
-            setSeat(null);
             setRoomState(null);
         });
         socket.on('state', (st) => setRoomState(st));
@@ -59,7 +60,19 @@ export function OnlineGame() {
         return () => {
             socket.disconnect();
             socketRef.current = null;
+            setConnected(false);
         };
+    }, [username]);
+
+    const enter = useCallback((name: string) => {
+        localStorage.setItem(USERNAME_KEY, name);
+        setUsername(name);
+    }, []);
+    const changeUser = useCallback(() => {
+        setUsername(null);
+        setRooms([]);
+        setRoomId(null);
+        setRoomState(null);
     }, []);
 
     const createRoom = useCallback(() => {
@@ -74,6 +87,9 @@ export function OnlineGame() {
     const leaveRoom = useCallback(() => {
         socketRef.current?.emit('leaveRoom');
     }, []);
+    const setTeam = useCallback((player: string, team: Seat) => {
+        socketRef.current?.emit('setTeam', { player, team });
+    }, []);
     const handleIntersectionClick = useCallback(([row, col]: Coordinates) => {
         socketRef.current?.emit('play', [row, col]);
     }, []);
@@ -81,14 +97,25 @@ export function OnlineGame() {
         socketRef.current?.emit('pass');
     }, []);
 
+    if (username === null) {
+        return (
+            <UsernameForm
+                defaultValue={localStorage.getItem(USERNAME_KEY) ?? ''}
+                onSubmit={enter}
+            />
+        );
+    }
+
     if (roomId === null) {
         return (
             <Lobby
+                username={username}
                 connected={connected}
                 rooms={rooms}
                 onCreate={createRoom}
                 onJoin={joinRoom}
                 onRefresh={refresh}
+                onChangeUser={changeUser}
             />
         );
     }
@@ -102,34 +129,37 @@ export function OnlineGame() {
         );
     }
 
-    const myTurn = seat === roomState.currentPlayer && !roomState.gameOver;
-    const opponentConnected =
-        seat === 'black'
-            ? roomState.whiteConnected
-            : seat === 'white'
-              ? roomState.blackConnected
-              : null;
+    const mySeat: Seat = roomState.blackTeam.includes(username)
+        ? 'black'
+        : roomState.whiteTeam.includes(username)
+          ? 'white'
+          : 'spectator';
+    const myTurn = roomState.currentMover === username && !roomState.gameOver;
+    const colorText = roomState.currentPlayer === 'black' ? '黑' : '白';
+    const turnText = roomState.gameOver
+        ? '对局结束'
+        : myTurn
+          ? '轮到你落子'
+          : `${colorText}方行棋${roomState.currentMoverConnected ? '' : '（当前玩家已断线）'}`;
 
     return (
         <div className="game">
             <h1>房间 {roomId}</h1>
             <p>
-                {connected ? '已连接' : '连接中…'}
-                {seat ? ` · ${SEAT_LABEL[seat]}` : ''}
-                {opponentConnected !== null
-                    ? ` · 对手${opponentConnected ? '在线' : '已断线'}`
-                    : ''}
+                {username} · {SEAT_LABEL[mySeat]}
             </p>
-            <p>
-                {roomState.gameOver
-                    ? '对局结束'
-                    : `${roomState.currentPlayer === 'black' ? '黑' : '白'}方行棋${myTurn ? '（轮到你）' : ''}`}
-            </p>
+            <p>{turnText}</p>
             <p>
                 黑方提子：{roomState.blackCapturedOpponent}
                 &nbsp;&nbsp;&nbsp;白方提子：
                 {roomState.whiteCapturedOpponent}
             </p>
+
+            <RoomRoster
+                state={roomState}
+                username={username}
+                onSetTeam={setTeam}
+            />
 
             <div
                 style={{

@@ -1,25 +1,30 @@
 import type { CellState, Coordinates, Player } from '../types/common.ts';
 
-// A seat at the board. Two seats per room; the rest spectate.
+// Which team a player is on. Each color is a team (联棋); the rest spectate.
 export type Seat = 'black' | 'white' | 'spectator';
 
 // Authoritative snapshot the server broadcasts to a room after every change.
 export interface RoomState {
     board: CellState[][];
-    currentPlayer: Player;
+    currentPlayer: Player; // color to move
     blackCapturedOpponent: number;
     whiteCapturedOpponent: number;
     moveCount: number;
     lastMove: Coordinates | 'PASS' | null;
     gameOver: boolean;
-    blackConnected: boolean;
-    whiteConnected: boolean;
+    owner: string; // room owner (playerId/username); controls the roster
+    blackTeam: string[]; // ordered playerIds
+    whiteTeam: string[];
+    spectators: string[]; // connected players without a seat
+    connected: string[]; // currently-connected players (for online/offline marks)
+    currentMover: string | null; // who must play this turn (联棋 rotation)
+    currentMoverConnected: boolean;
 }
 
 // One row in the lobby list.
 export interface RoomSummary {
     id: string;
-    players: number; // seated players, 0-2
+    players: number; // total people in the room
     gameOver: boolean;
     moveCount: number;
 }
@@ -30,6 +35,8 @@ export interface ClientToServerEvents {
     createRoom: () => void;
     joinRoom: (roomId: string) => void;
     leaveRoom: () => void;
+    // Owner-only: move a player to a team or to the bench (加人/踢人/调队).
+    setTeam: (payload: { player: string; team: Seat }) => void;
     play: (coordinates: Coordinates) => void;
     pass: () => void;
 }
