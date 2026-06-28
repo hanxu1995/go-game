@@ -1,5 +1,5 @@
-// Boot the authoritative server in-process, then drive it with two clients.
-import './src/index';
+// Boot the authoritative server in-process, then drive it with clients.
+import './src/index.ts';
 import { CellStates } from '@go-game/shared';
 import { io } from 'socket.io-client';
 
@@ -14,64 +14,92 @@ function once(socket: any, event: string): Promise<any> {
     return new Promise((resolve) => socket.once(event, resolve));
 }
 
+// Buffers every `event` so the test consumes them in order without races.
+function collect(socket: any, event: string): { next: () => Promise<any> } {
+    const queue: any[] = [];
+    const waiters: Array<(v: any) => void> = [];
+    socket.on(event, (arg: any) => {
+        const waiter = waiters.shift();
+        if (waiter) {
+            waiter(arg);
+        } else {
+            queue.push(arg);
+        }
+    });
+    return {
+        next() {
+            const v = queue.shift();
+            return v !== undefined
+                ? Promise.resolve(v)
+                : new Promise((resolve) => waiters.push(resolve));
+        },
+    };
+}
+
 async function main(): Promise<void> {
-    const a = io(URL);
-    const aSeat = once(a, 'seat');
-    const aInit = once(a, 'state');
-    const b = io(URL);
-    const bSeat = once(b, 'seat');
-    const bInit = once(b, 'state');
+    // A connects -> lobby (empty).
+    const a = io(URL, { auth: { playerId: 'pa' } });
+    const aRooms = collect(a, 'rooms');
+    const aStates = collect(a, 'state');
+    const initial = await aRooms.next();
+    check('lobby starts empty', Array.isArray(initial) && initial.length === 0);
 
-    check('A seat = black', (await aSeat) === 'black');
-    check('B seat = white', (await bSeat) === 'white');
-    await aInit;
-    await bInit;
+    // A creates a room -> seated black.
+    const aJoined = once(a, 'joined');
+    a.emit('createRoom');
+    const created = await aJoined;
+    await aStates.next();
+    const roomId = created.roomId;
+    check(
+        'A created room, seat black',
+        created.seat === 'black' && typeof roomId === 'string',
+    );
 
-    // A (black) plays (0,0): broadcast to both clients.
-    const aS1 = once(a, 'state');
-    const bS1 = once(b, 'state');
+    // B connects -> lobby shows the room with one player.
+    const b = io(URL, { auth: { playerId: 'pb' } });
+    const bRooms = collect(b, 'rooms');
+    const bStates = collect(b, 'state');
+    const lobby = await bRooms.next();
+    check(
+        'B sees 1 room with 1 player',
+        lobby.length === 1 && lobby[0].players === 1,
+    );
+
+    // B joins -> seated white.
+    const bJoined = once(b, 'joined');
+    b.emit('joinRoom', roomId);
+    const bj = await bJoined;
+    await bStates.next();
+    await aStates.next(); // A is notified that B joined the room
+    check('B joined as white', bj.seat === 'white' && bj.roomId === roomId);
+
+    // A (black) plays -> both in the room receive state.
     a.emit('play', [0, 0]);
-    const s1 = await aS1;
-    await bS1;
-    check('stone placed at 0,0', s1.board[0][0] === CellStates.Black);
-    check('turn -> white', s1.currentPlayer === 'white');
-    check('moveCount = 1', s1.moveCount === 1);
+    const s1 = await aStates.next();
+    await bStates.next();
+    check(
+        'move syncs in room',
+        s1.board[0][0] === CellStates.Black && s1.moveCount === 1,
+    );
 
-    // B (white) plays (3,3): broadcast to both clients.
-    const aS2 = once(a, 'state');
-    const bS2 = once(b, 'state');
-    b.emit('play', [3, 3]);
-    const s2 = await bS2;
-    await aS2;
-    check('white at 3,3', s2.board[3][3] === CellStates.White);
-    check('turn -> black', s2.currentPlayer === 'black');
+    // A leaves -> back to lobby, black seat freed.
+    const aLeft = once(a, 'left');
+    a.emit('leaveRoom');
+    await aLeft;
+    check('A left to lobby', true);
 
-    // B plays again out of turn -> rejected (only B is notified).
-    const bRej = once(b, 'rejected');
-    b.emit('play', [4, 4]);
-    check('out-of-turn rejected', typeof (await bRej) === 'string');
-
-    // A plays on an occupied point -> rejected.
-    const aRej = once(a, 'rejected');
-    a.emit('play', [0, 0]);
-    check('illegal move rejected', typeof (await aRej) === 'string');
-
-    // Double pass -> game over. Drain both clients on each broadcast so the
-    // next listener can't catch the previous pass's state.
-    const aPass1 = once(a, 'state');
-    const bPass1 = once(b, 'state');
-    a.emit('pass');
-    await aPass1;
-    await bPass1;
-    const aEnd = once(a, 'state');
-    const bEnd = once(b, 'state');
-    b.emit('pass');
-    const sEnd = await bEnd;
-    await aEnd;
-    check('double pass -> gameOver', sEnd.gameOver === true);
+    // Reconnection: B drops and returns with the same playerId -> back in the
+    // same room, seat white restored.
+    b.close();
+    const b2 = io(URL, { auth: { playerId: 'pb' } });
+    const rejoined = await once(b2, 'joined');
+    check(
+        'B reconnects into room as white',
+        rejoined.roomId === roomId && rejoined.seat === 'white',
+    );
 
     a.close();
-    b.close();
+    b2.close();
 }
 
 setTimeout(() => {

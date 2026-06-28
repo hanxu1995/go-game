@@ -10,6 +10,7 @@ export type { ScoreResult } from './score/score.ts';
 export type {
     ClientToServerEvents,
     RoomState,
+    RoomSummary,
     Seat,
     ServerToClientEvents,
 } from './protocol/protocol.ts';

@@ -5,7 +5,13 @@ import { type GameSocket, createSocket } from '../online/socket.ts';
 import { displayMessage } from '../utils/message.ts';
 import { Board } from './Board';
 import './Game.css';
-import type { Coordinates, RoomState, Seat } from '@go-game/shared';
+import { Lobby } from './Lobby.tsx';
+import type {
+    Coordinates,
+    RoomState,
+    RoomSummary,
+    Seat,
+} from '@go-game/shared';
 import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
@@ -19,6 +25,8 @@ const SEAT_LABEL: Record<Seat, string> = {
 export function OnlineGame() {
     const socketRef = useRef<GameSocket | null>(null);
     const [connected, setConnected] = useState(false);
+    const [rooms, setRooms] = useState<RoomSummary[]>([]);
+    const [roomId, setRoomId] = useState<string | null>(null);
     const [seat, setSeat] = useState<Seat | null>(null);
     const [roomState, setRoomState] = useState<RoomState | null>(null);
     const [showCoordinates, setShowCoordinates] = useState(true);
@@ -28,10 +36,25 @@ export function OnlineGame() {
         socketRef.current = socket;
         socket.on('connect', () => setConnected(true));
         socket.on('disconnect', () => setConnected(false));
-        socket.on('seat', (s) => setSeat(s));
+        // Receiving the lobby list means the server has us in the lobby.
+        socket.on('rooms', (list) => {
+            setRooms(list);
+            setRoomId(null);
+            setSeat(null);
+            setRoomState(null);
+        });
+        socket.on('joined', ({ roomId: id, seat: mySeat }) => {
+            setRoomId(id);
+            setSeat(mySeat);
+        });
+        socket.on('left', () => {
+            setRoomId(null);
+            setSeat(null);
+            setRoomState(null);
+        });
         socket.on('state', (st) => setRoomState(st));
         socket.on('rejected', (reason) =>
-            displayMessage(reason, 'warning', '不可落子'),
+            displayMessage(reason, 'warning', '提示'),
         );
         return () => {
             socket.disconnect();
@@ -39,6 +62,18 @@ export function OnlineGame() {
         };
     }, []);
 
+    const createRoom = useCallback(() => {
+        socketRef.current?.emit('createRoom');
+    }, []);
+    const joinRoom = useCallback((id: string) => {
+        socketRef.current?.emit('joinRoom', id);
+    }, []);
+    const refresh = useCallback(() => {
+        socketRef.current?.emit('listRooms');
+    }, []);
+    const leaveRoom = useCallback(() => {
+        socketRef.current?.emit('leaveRoom');
+    }, []);
     const handleIntersectionClick = useCallback(([row, col]: Coordinates) => {
         socketRef.current?.emit('play', [row, col]);
     }, []);
@@ -46,23 +81,44 @@ export function OnlineGame() {
         socketRef.current?.emit('pass');
     }, []);
 
-    if (!roomState) {
+    if (roomId === null) {
+        return (
+            <Lobby
+                connected={connected}
+                rooms={rooms}
+                onCreate={createRoom}
+                onJoin={joinRoom}
+                onRefresh={refresh}
+            />
+        );
+    }
+
+    if (roomState === null) {
         return (
             <div className="game">
-                <h1>围棋-联机</h1>
-                <p>{connected ? '已连接，等待状态…' : '连接服务器中…'}</p>
+                <h1>房间 {roomId}</h1>
+                <p>{connected ? '加载中…' : '连接中…'}</p>
             </div>
         );
     }
 
     const myTurn = seat === roomState.currentPlayer && !roomState.gameOver;
+    const opponentConnected =
+        seat === 'black'
+            ? roomState.whiteConnected
+            : seat === 'white'
+              ? roomState.blackConnected
+              : null;
 
     return (
         <div className="game">
-            <h1>围棋-联机</h1>
+            <h1>房间 {roomId}</h1>
             <p>
                 {connected ? '已连接' : '连接中…'}
                 {seat ? ` · ${SEAT_LABEL[seat]}` : ''}
+                {opponentConnected !== null
+                    ? ` · 对手${opponentConnected ? '在线' : '已断线'}`
+                    : ''}
             </p>
             <p>
                 {roomState.gameOver
@@ -91,6 +147,9 @@ export function OnlineGame() {
                     onClick={handlePass}
                 >
                     停一手
+                </Button>
+                <Button variant="outlined" onClick={leaveRoom}>
+                    离开房间
                 </Button>
                 <FormControlLabel
                     control={
