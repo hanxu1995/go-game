@@ -3,8 +3,15 @@ import { useCallback, useMemo, useState } from 'react';
 import { BoardSize, CellSizePx, DefaultKomi, Dots, FullKo } from '../config.ts';
 import { downloadTextFile } from '../utils/download.ts';
 import { displayMessage } from '../utils/message.ts';
+import {
+    MOVE_NUMBER_MODE_LABEL,
+    type MoveNumberMode,
+    minVisibleMoveNumber,
+    nextMoveNumberMode,
+} from '../utils/moveNumbers.ts';
 import { Board } from './Board';
 import './Game.css';
+import { ScoreBanner } from './ScoreBanner.tsx';
 import {
     CellStates,
     type Coordinates,
@@ -23,16 +30,6 @@ import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
-
-type MoveNumberMode = 'none' | 'all' | 'last10';
-
-const LAST_N = 10;
-const MOVE_NUMBER_MODE_ORDER: MoveNumberMode[] = ['none', 'all', 'last10'];
-const MOVE_NUMBER_MODE_LABEL: Record<MoveNumberMode, string> = {
-    none: '手顺：关',
-    all: '手顺：全部',
-    last10: `手顺：最后${LAST_N}手`,
-};
 
 const initialGameState: GameState = {
     board: Array.from({ length: BoardSize }, () =>
@@ -130,12 +127,7 @@ export function Game() {
     }, [lastGameState, komi]);
 
     const cycleMoveNumberMode = useCallback(() => {
-        setMoveNumberMode((mode) => {
-            const nextIndex =
-                (MOVE_NUMBER_MODE_ORDER.indexOf(mode) + 1) %
-                MOVE_NUMBER_MODE_ORDER.length;
-            return MOVE_NUMBER_MODE_ORDER[nextIndex];
-        });
+        setMoveNumberMode(nextMoveNumberMode);
     }, []);
 
     const handleDownloadSgf = useCallback(() => {
@@ -151,12 +143,7 @@ export function Game() {
         [gameStatesRecord],
     );
     const totalMoves = gameStatesRecord.moves.length;
-    const minVisibleMoveNumber =
-        moveNumberMode === 'none'
-            ? Number.POSITIVE_INFINITY
-            : moveNumberMode === 'last10'
-              ? totalMoves - LAST_N + 1
-              : 1;
+    const minVisible = minVisibleMoveNumber(moveNumberMode, totalMoves);
 
     return (
         <div className="game">
@@ -172,29 +159,7 @@ export function Game() {
                 {lastGameState.whiteCapturedOpponent}
             </p>
 
-            {score && (
-                <div
-                    style={{
-                        margin: '8px auto',
-                        padding: '8px 12px',
-                        maxWidth: 'fit-content',
-                        border: '1px solid #bbb',
-                        borderRadius: 6,
-                        background: '#f6f6f6',
-                    }}
-                >
-                    <div>
-                        {`${gameOver ? '对局结束' : '数子'} · ${
-                            score.winner === 'draw'
-                                ? '平局'
-                                : `${score.winner === 'black' ? '黑' : '白'}胜 ${score.margin} 子`
-                        }`}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                        {`黑 ${score.blackArea} 子 · 白 ${score.whiteArea} 子（贴目 ${score.komi} 子 / ${score.komi * 2} 目）`}
-                    </div>
-                </div>
-            )}
+            {score && <ScoreBanner score={score} gameOver={gameOver} />}
 
             <div
                 style={{
@@ -255,7 +220,7 @@ export function Game() {
                 dots={Dots}
                 boardState={lastGameState.board}
                 moveNumberBoard={moveNumberBoard}
-                minVisibleMoveNumber={minVisibleMoveNumber}
+                minVisibleMoveNumber={minVisible}
                 showCoordinates={showCoordinates}
                 onIntersectionClick={handleIntersectionClick}
             />

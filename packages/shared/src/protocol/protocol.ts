@@ -19,6 +19,8 @@ export interface RoomState {
     connected: string[]; // currently-connected players (for online/offline marks)
     currentMover: string | null; // who must play this turn (联棋 rotation)
     currentMoverConnected: boolean;
+    moveNumberBoard: number[][]; // 手顺: move number that placed each stone (0 = empty)
+    komi: number; // 子 (Chinese rules) — for online 数子 / SGF
 }
 
 // One row in the lobby list.
@@ -39,6 +41,7 @@ export interface ClientToServerEvents {
     setTeam: (payload: { player: string; team: Seat }) => void;
     play: (coordinates: Coordinates) => void;
     pass: () => void;
+    requestSgf: () => void;
 }
 
 export interface ServerToClientEvents {
@@ -47,4 +50,5 @@ export interface ServerToClientEvents {
     left: () => void; // back to lobby
     state: (state: RoomState) => void; // current room snapshot
     rejected: (reason: string) => void;
+    sgf: (content: string) => void;
 }

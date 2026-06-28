@@ -98,6 +98,17 @@ async function main(): Promise<void> {
     a.emit('play', [0, 0]);
     const m1 = await aStates.next();
     check('after pa, mover pb', m1.currentMover === 'pb' && m1.moveCount === 1);
+    check(
+        'state carries 手顺 grid + komi',
+        m1.moveNumberBoard[0][0] === 1 && m1.komi === 3.75,
+    );
+    const sgfP = once(a, 'sgf');
+    a.emit('requestSgf');
+    const sgf = await sgfP;
+    check(
+        'sgf on request',
+        typeof sgf === 'string' && sgf.startsWith('(;FF[4]'),
+    );
     b.socket.emit('play', [0, 1]);
     const m2 = await aStates.next();
     check('rotation: mover pc', m2.currentMover === 'pc');

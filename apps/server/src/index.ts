@@ -9,8 +9,10 @@ import {
     type RoomSummary,
     type Seat,
     type ServerToClientEvents,
+    buildMoveNumberBoard,
     checkAndAddNewHistoricalGameState,
     cloneGameStatesRecord,
+    toSGF,
     transitGameState,
 } from '@go-game/shared';
 import { createServer } from 'node:http';
@@ -22,6 +24,7 @@ const LOBBY = 'lobby';
 const PORT = Number(process.env.PORT ?? 3001);
 // How long a disconnected player keeps their place before being removed.
 const GRACE_MS = Number(process.env.GRACE_MS ?? 60_000);
+const DEFAULT_KOMI = 3.75; // 中国规则贴目（子）
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -29,6 +32,7 @@ type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 interface Room {
     id: string;
     owner: string; // playerId of the room owner (controls the roster)
+    komi: number; // 子 (Chinese rules)
     record: GameStatesRecord;
     gameOver: boolean;
     // 联棋: each color is an ordered team of playerIds.
@@ -67,6 +71,7 @@ function makeRoom(): Room {
     const room: Room = {
         id: `room-${roomCounter}`,
         owner: '',
+        komi: DEFAULT_KOMI,
         record: createInitialRecord(BOARD_SIZE),
         gameOver: false,
         teams: { black: [], white: [] },
@@ -153,6 +158,8 @@ function toRoomState(room: Room): RoomState {
         connected: [...room.connections.keys()],
         currentMover: mover,
         currentMoverConnected: mover !== null && isConnected(room, mover),
+        moveNumberBoard: buildMoveNumberBoard(room.record.historicalGameStates),
+        komi: room.komi,
     };
 }
 
@@ -429,6 +436,13 @@ io.on('connection', (socket) => {
     });
     socket.on('pass', () => {
         handleMove(socket, playerId, currentRoomId, { type: 'PASS' });
+    });
+
+    socket.on('requestSgf', () => {
+        const room = currentRoomId ? rooms.get(currentRoomId) : undefined;
+        if (room) {
+            socket.emit('sgf', toSGF(room.record.moves, BOARD_SIZE, room.komi));
+        }
     });
 
     socket.on('disconnect', () => {

@@ -2,17 +2,27 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { BoardSize, CellSizePx, Dots } from '../config.ts';
 import { type GameSocket, createSocket } from '../online/socket.ts';
+import { downloadTextFile } from '../utils/download.ts';
 import { displayMessage } from '../utils/message.ts';
+import {
+    MOVE_NUMBER_MODE_LABEL,
+    type MoveNumberMode,
+    minVisibleMoveNumber,
+    nextMoveNumberMode,
+} from '../utils/moveNumbers.ts';
 import { Board } from './Board';
 import './Game.css';
 import { Lobby } from './Lobby.tsx';
 import { RoomRoster } from './RoomRoster.tsx';
+import { ScoreBanner } from './ScoreBanner.tsx';
 import { UsernameForm } from './UsernameForm.tsx';
-import type {
-    Coordinates,
-    RoomState,
-    RoomSummary,
-    Seat,
+import {
+    type Coordinates,
+    type RoomState,
+    type RoomSummary,
+    type ScoreResult,
+    type Seat,
+    computeAreaScore,
 } from '@go-game/shared';
 import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -33,6 +43,9 @@ export function OnlineGame() {
     const [roomId, setRoomId] = useState<string | null>(null);
     const [roomState, setRoomState] = useState<RoomState | null>(null);
     const [showCoordinates, setShowCoordinates] = useState(true);
+    const [moveNumberMode, setMoveNumberMode] =
+        useState<MoveNumberMode>('none');
+    const [score, setScore] = useState<ScoreResult | null>(null);
 
     useEffect(() => {
         if (!username) {
@@ -47,13 +60,20 @@ export function OnlineGame() {
             setRooms(list);
             setRoomId(null);
             setRoomState(null);
+            setScore(null);
         });
         socket.on('joined', ({ roomId: id }) => setRoomId(id));
         socket.on('left', () => {
             setRoomId(null);
             setRoomState(null);
+            setScore(null);
         });
-        socket.on('state', (st) => setRoomState(st));
+        socket.on('state', (st) => {
+            setRoomState(st);
+            // Auto-score when the game ends; any other update clears it.
+            setScore(st.gameOver ? computeAreaScore(st.board, st.komi) : null);
+        });
+        socket.on('sgf', (content) => downloadTextFile('game.sgf', content));
         socket.on('rejected', (reason) =>
             displayMessage(reason, 'warning', '提示'),
         );
@@ -73,6 +93,7 @@ export function OnlineGame() {
         setRooms([]);
         setRoomId(null);
         setRoomState(null);
+        setScore(null);
     }, []);
 
     const createRoom = useCallback(() => {
@@ -95,6 +116,12 @@ export function OnlineGame() {
     }, []);
     const handlePass = useCallback(() => {
         socketRef.current?.emit('pass');
+    }, []);
+    const cycleMoveNumberMode = useCallback(() => {
+        setMoveNumberMode(nextMoveNumberMode);
+    }, []);
+    const requestSgf = useCallback(() => {
+        socketRef.current?.emit('requestSgf');
     }, []);
 
     if (username === null) {
@@ -141,6 +168,12 @@ export function OnlineGame() {
         : myTurn
           ? '轮到你落子'
           : `${colorText}方行棋${roomState.currentMoverConnected ? '' : '（当前玩家已断线）'}`;
+    const minVisible = minVisibleMoveNumber(
+        moveNumberMode,
+        roomState.moveCount,
+    );
+    const showScore = () =>
+        setScore(computeAreaScore(roomState.board, roomState.komi));
 
     return (
         <div className="game">
@@ -154,6 +187,10 @@ export function OnlineGame() {
                 &nbsp;&nbsp;&nbsp;白方提子：
                 {roomState.whiteCapturedOpponent}
             </p>
+
+            {score && (
+                <ScoreBanner score={score} gameOver={roomState.gameOver} />
+            )}
 
             <RoomRoster
                 state={roomState}
@@ -178,6 +215,19 @@ export function OnlineGame() {
                 >
                     停一手
                 </Button>
+                <Button variant="outlined" onClick={showScore}>
+                    数子
+                </Button>
+                <Button variant="outlined" onClick={cycleMoveNumberMode}>
+                    {MOVE_NUMBER_MODE_LABEL[moveNumberMode]}
+                </Button>
+                <Button
+                    variant="outlined"
+                    onClick={requestSgf}
+                    disabled={roomState.moveCount === 0}
+                >
+                    下载棋谱
+                </Button>
                 <Button variant="outlined" onClick={leaveRoom}>
                     离开房间
                 </Button>
@@ -199,6 +249,8 @@ export function OnlineGame() {
                 boardSize={BoardSize}
                 dots={Dots}
                 boardState={roomState.board}
+                moveNumberBoard={roomState.moveNumberBoard}
+                minVisibleMoveNumber={minVisible}
                 showCoordinates={showCoordinates}
                 onIntersectionClick={handleIntersectionClick}
             />
